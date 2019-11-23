@@ -24,4 +24,25 @@ router.route('/:id/member')
 router.route('/:id/member')
     .post(Project.postMember)
 
+router.route('/:id/member/:mid')
+    .get(Project.getMemberID)
+
+router.route('/:id/member/:mid')
+    .put(Project.putMemberID)
+
+router.route('/:id/member/:mid')
+    .delete(Project.deleteMemberID)
+
+router.route('/:id/member/:mid/document')
+    .get(Project.getMemberDoc)
+
+router.route('/:id/member/:mid/document')
+    .post(Project.postMemberDoc)
+
+router.route('/:id/member/:mid/document/:did')
+    .get(Project.getMemberDocID)
+
+router.route('/:id/member/:mid/document/:did')
+    .delete(Project.deleteMemberDocID)
+
 module.exports = router
