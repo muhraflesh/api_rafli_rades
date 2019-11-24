@@ -1,11 +1,11 @@
 'use strict'
 
-exports.success_get = function(rows, offset, limit, res) {
+exports.success_get = function(rows, offset, limit, total, res) {
     var data = {
         'status': 200,
         'offset': offset,
         'limit': limit,
-        'total': 0,
+        'total': total,
         'data': rows
     }
     res.json(data)
@@ -40,10 +40,10 @@ exports.success_delete = function(values, res) {
     res.end()
 }
 
-exports.not_found = function(values, res) {
+exports.success_generateToken = function(values, res) {
     var data = {
-        'code': 404,
-        'message': values
+        'status': 200,
+        'data': values
     }
     res.json(data)
     res.end()
@@ -53,6 +53,24 @@ exports.bad_req = function(values, res) {
     var data = {
         'code': 400,
         'status': 'Bad Request',
+        'message': values
+    }
+    res.json(data)
+    res.end()
+}
+
+exports.unauthor = function(values, res) {
+    var data = {
+        'code': 401,
+        'message': values
+    }
+    res.json(data)
+    res.end()
+}
+
+exports.not_found = function(values, res) {
+    var data = {
+        'code': 404,
         'message': values
     }
     res.json(data)
