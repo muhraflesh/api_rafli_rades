@@ -58,9 +58,9 @@ const res_func = (result) => {
         var row = result.rows[i];
         var tmp_docs = {
             "id": row.user_screening_id,
-            "firstName": row.first_name,
-            "lastName": row.last_name,
-            "userName": row.user_name,
+            "firstName": row.firstname,
+            "lastName": row.lastname,
+            "userName": row.username,
             "mail": row.email,
             "phone": row.phone_number,
             "cardMember": row.card_member,
@@ -86,7 +86,7 @@ const res_func = (result) => {
         }
         docs.push(tmp_docs)
     }
-    return docs
+    return [docs, i]
 }
 const post_docs = async (req) => {
     return x = {
@@ -244,31 +244,48 @@ module.exports = {
     get_scr : async (req, res, next) => {
         const offset = offset_func(req)
         const limit = limit_func(req)
-        const query = `SELECT user_screening_id, firstname, lastname, username, email, telephone, card_member, card_number, gender, birth_date, kk_number, nik, blood_type, father_name, mother_name, popti_city, address_state, address_city, address, detection_year,level_1_health_facilities, level_of_education, marital_status, occupation, provider_status, us.create_date FROM public."user" u RIGHT OUTER JOIN public."user_screening" us ON u.user_id = us.user_id where u.user_id = '${req.params.id}' offset ${offset} limit ${limit};`
-        
+        let q = ``
+        if (req.query.name) q = `${q} AND (firstname = '${req.query.name}' OR lastname = '${req.query.name}' OR username = '${req.query.name}')`
+        if (req.query.mail) q = `${q} AND email = '${req.query.email}'`
+        if (req.query.phone) q = `${q} AND telephone = '${req.query.phone}'`
+        if (req.query.cnum) q = `${q} AND card_number = '${req.query.cnum}'`
+        if (req.query.gender) q = `${q} AND gender = '${req.query.gender}'`
+        if (req.query.kk) q = `${q} AND kk_number = '${req.query.kk}'`
+        if (req.query.nik) q = `${q} AND nik = '${req.query.nik}'`
+        if (req.query.date) q = `${q} AND create_date = '${req.query.date}'`
+        if (req.query.parent) q = `${q} AND (father_name = '${req.query.parent}' OR mother_name = '${req.query.parent}')`
+        if (req.query.address) q = `${q} AND (address_state = '${req.query.address}' OR address_city = '${req.query.address}' OR address = '${req.query.address}' )`
+        if (req.query.popti) q = `${q} AND popti_city = '${req.query.popti}'`
+        const query = `SELECT user_screening_id, u.firstname, u.lastname, u.username, email, telephone, card_member, card_number, gender, birth_date, kk_number, nik, blood_type, father_name, mother_name, popti_city, address_state, address_city, address, detection_year,level_1_health_facilities, level_of_education, marital_status, occupation, provider_status, us.create_date FROM public."user" u RIGHT OUTER JOIN public."user_screening" us ON u.user_id = us.user_id where u.user_id = '${req.params.id}' ${q} offset ${offset} limit ${limit};`
         connection.query(query, (error, result, fields) => {
-            if (error) {console.log(error)}
+            if (error) {
+                console.log(error)
+                response.server_error(error, res)
+            }
             else{
                 const docs = res_func(result)
-                response.success_get(docs, offset, limit, res)
+                response.success_get(docs[0], offset, limit, docs[1], res)
             }
         })
-        res.send(x.date)
-
     },
 
     post_scr : async (req, res, next) => {
         const x = await post_docs(req)
         const query = `INSERT INTO public."user_screening"(user_screening_id, user_id, create_date, kk_number, blood_type, father_name, mother_name, popti_city, address_state, address_city, address, detection_year, level_1_health_facilities, level_of_education, marital_status, occupation, provider_status) VALUES ('${x.id}', '${x.user_id}', '${x.date}', '${x.kk_number}', '${x.blood_type}', '${x.father_name}', '${x.mother_name}', '${x.popti_city}', '${x.address_state}', '${x.address_city}', '${x.address}', '${x.detection_year}', '${x.level_1_health_facilities}', '${x.level_of_education}', '${x.marital_status}', '${x.occupation}', '${x.provider_status}');`
         await connection.query(query, async (error, result, fields) => {
-            if (error) {console.log(error)}
+            if (error) {
+                console.log(error)
+                response.server_error(error, res)
+            }
             else {
                 connection.query(`SELECT * FROM public."user_screening" WHERE user_screening_id = '${x.id}'`, (error, result, fields) => {
-                    if (error) {console.log(error)}
+                    if (error) {
+                        console.log(error)
+                        response.server_error(error, res)
+                    }
                     else {
                         const docs = res_func(result)
-                        response.success_post_put(docs, res)
-                    }
+                        response.success_post_put("Screening has been created.", docs, res)}
                 })
             }
         })
@@ -277,7 +294,10 @@ module.exports = {
     get_scr_sid : async (req, res, next) => {
         const query = `SELECT user_screening_id, firstname, lastname, username, email, telephone, card_member, card_number, gender, birth_date, kk_number, nik, blood_type, father_name, mother_name, popti_city, address_state, address_city, address, detection_year,level_1_health_facilities, level_of_education, marital_status, occupation, provider_status, us.create_date FROM public."user" u RIGHT OUTER JOIN public."user_screening" us ON u.user_id = us.user_id where u.user_id = '${req.params.id}' AND us.user_screening_id = '${req.params.sid}' ;`
         connection.query(query, (error, result, fields) => {
-            if (error) {console.log(error)}
+            if (error) {
+                console.log(error)
+                response.server_error(error, res)
+            }
             else{
                 const docs = res_func(result)
                 response.success_getID(docs, res)
@@ -291,13 +311,19 @@ module.exports = {
         const query = `UPDATE public."user_screening" SET create_date = '${date}' ${req_query} WHERE user_screening_id = '${req.params.sid}' AND user_id = '${req.params.id}';`
         
         connection.query(query, async (error, result, fields) => {
-            if (error) {console.log(error)}
+            if (error) {
+                console.log(error)
+                response.server_error(error, res)
+            }
             else {
                 await connection.query(`SELECT * FROM public."user_screening" WHERE user_screening_id = '${req.params.sid}';`, (error, result, fields) => {
-                    if (error) {console.log(error)}
+                    if (error) {
+                        console.log(error)
+                        response.server_error(error, res)
+                    }
                     else {
                         const docs = res_func(result)
-                        response.success_post_put('Update User Screening Successfully', docs, res)
+                        response.success_post_put('Screening has been updated.', docs, res)
                     }
                 })
             }
@@ -307,12 +333,15 @@ module.exports = {
     del_scr_sid : async (req, res, next) => {
         const query = `DELETE FROM public."user_screening" WHERE user_screening_id = '${req.params.sid}' AND user_id = ${req.params.id};`
         await connection.query(query, (error, result, fields) => {
-            if (error) {console.log(error)}
+            if (error) {
+                console.log(error)
+                response.server_error(error, res)
+            }
             else {
                 if(result.rowCount == 0){
-                    response.not_found('User Screening Not Found', res)
+                    response.not_found('Screening not found.', res)
                 } else{
-                    response.success_delete('User Screening Has Been Deleted', res)
+                    response.success_delete('Screening has been deleted.', res)
                 }
             }
         })
@@ -323,10 +352,13 @@ module.exports = {
         const limit = limit_func(req)
         let q1, q2 = ""
         if (req.query.name) q1 = `AND laboratory_name = '${req.query.name}`
-        if (req.query) q2 = `AND laboratory_number = '${req.query.number}'`
+        if (req.query.number) q2 = `AND laboratory_number = '${req.query.number}'`
         const query = `SELECT * FROM laboratory result WHERE user_screening_id = '${req.params.sid}' ${q1} ${q2} offset = ${offset} limit = ${limit};`
         await connection.query(query, (error, result, fields) => {
-            if (error) {console.log(error)}
+            if (error) {
+                console.log(error)
+                response.server_error(error, res)
+            }
             else{
                 const docs = labres_func(result)
                 response.labsuccess_get(docs, res)
@@ -338,10 +370,16 @@ module.exports = {
         const x = await labpost_docs(req)
         const query = `INSERT INTO public."laboratory_result"(user_screening_id, laboratory_result_id, laboratory_name, laboratory_number, visit_date, hemoglobin, hematokrit, eritrosit, mcv, mch, mchc, rdw_cv, trombosit, leukosit, basofil, eosinofil, neutrofil, limfosit, monosit, neutrofil_segmen, neutrofil_batang, led, hba2, hbf, hb_status, anemia_status, shine_and_lal, susp_hemoglobinopathy, type) VALUES('${x.user_screening_id}', '${x.laboratory_result_id}', '${x.laboratory_name}', '${x.laboratory_number}', '${x.visit_date}', '${x.hemoglobin}', '${x.hematokrit}', '${x.eritrosit}', '${x.mcv}', '${x.mch}', '${x.mchc}', '${x.rdw_cv}', '${x.trombosit}', '${x.leukosit}', '${x.basofil}', '${x.eosinofil}', '${x.neutrofil}', '${x.limfosit}', '${x.monosit}', '${x.neutrofil_segmen}', '${x.neutrofil_batang}', '${x.led}', '${x.hba2}', '${x.hbf}', '${x.hb_status}', '${x.anemia_status}', '${x.shine_and_lal}', '${x.susp_hemoglobinopathy}', '${x.type}');`
         await connection.query(query, async (error, result, fields) => {
-            if (error) {console.log(error)}
+            if (error) {
+                console.log(error)
+                response.server_error(error, res)
+            }
             else {
                 connection.query(`SELECT * FROM public."laboratory_result" WHERE laboratory_result_id = '${x.laboratory_result_id}'`, (error, result, fields) => {
-                    if (error) {console.log(error)}
+                    if (error) {
+                        console.log(error)
+                        response.server_error(error, res)
+                    }
                     else {
                         const docs = labres_func(result)
                         response.success_post_put("Laboratory result has been added", docs, res)
@@ -354,13 +392,15 @@ module.exports = {
     get_lab_lid : async (req, res, next) => {
         const query = `SELECT * FROM public."laboratory_result" WHERE laboratory_result_id = '${req.params.lid}';`
         await connection.query(query, (error, result, fields) => {
-            if (error) {console.lof(error)}
+            if (error) {
+                console.log(error)
+                response.server_error(error, res)
+            }
             else {
                 const docs = labres_func(result)
                 response.success_getID(docs, res)
             }
         })
-        res.send({"controller":"get screening lab {:lid}"})
     },
 
     put_lab_lid : async (req, res, next) => {
@@ -368,13 +408,19 @@ module.exports = {
         const query = `UPDATE public."laboratory_result" SET ${req_query} WHERE laboratory_result_id = '${req.params.lid}' AND user_screening_id = '${req.params.sid}';`
         
         connection.query(query, async (error, result, fields) => {
-            if (error) {console.log(error)}
+            if (error) {
+                console.log(error)
+                response.server_error(error, res)
+            }
             else {
                 await connection.query(`SELECT * FROM public."laboratory_result" WHERE laboratory_result_id = '${req.params.lid}';`, (error, result, fields) => {
-                    if (error) {console.log(error)}
+                    if (error) {
+                        console.log(error)
+                        response.server_error(error, res)
+                    }
                     else {
                         const docs = labres_func(result)
-                        response.success_post_put('Updated Laboratory Result Successfully', docs, res)
+                        response.success_post_put('Laboratory result has been updated.', docs, res)
                     }
                 })
             }
@@ -384,12 +430,15 @@ module.exports = {
     del_lab_lid : async (req, res, next) => {
         const query = `DELETE FROM public."laboratory_result" WHERE user_screening_id = '${req.params.sid}' AND laboratory_result_id = ${req.params.lid};`
         await connection.query(query, (error, result, fields) => {
-            if (error) {console.log(error)}
+            if (error) {
+                console.log(error)
+                response.server_error(error, res)
+            }
             else {
                 if(result.rowCount == 0){
-                    response.not_found('Laboratory Result Not Found', res)
+                    response.not_found('Laboratory result Not Found', res)
                 } else{
-                    response.success_delete('Laboratory Result Has Been Deleted', res)
+                    response.success_delete('Laboratory result has been deleted', res)
                 }
             }
         })

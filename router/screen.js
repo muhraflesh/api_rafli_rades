@@ -1,29 +1,29 @@
 const router = require("express-promise-router")()
 const ctl = require("../models/screen")
-let temproute
+const verifytoken = require("../helpers/verify_token")
 
 router.route("/:id/screening")
-.get(ctl.get_scr)
+.get(verifytoken(), ctl.get_scr)
 router.route("/:id/screening")
-.post(ctl.post_scr)
+.post(verifytoken(), ctl.post_scr)
 
 router.route("/:id/screening/:sid")
-.get(ctl.get_scr_sid)
+.get(verifytoken(), ctl.get_scr_sid)
 router.route("/:id/screening/:sid")
-.put(ctl.put_scr_sid)
+.put(verifytoken(), ctl.put_scr_sid)
 router.route("/:id/screening/:sid")
-.delete(ctl.del_scr_sid)
+.delete(verifytoken(), ctl.del_scr_sid)
 
 router.route("/:id/screening/:sid/laboratory")
-.get(ctl.get_lab)
+.get(verifytoken(), ctl.get_lab)
 router.route("/:id/screening/:sid/laboratory")
-.post(ctl.post_lab)
+.post(verifytoken(), ctl.post_lab)
 
 router.route("/:id/screening/:sid/laboratory/:lid")
-.get(ctl.get_lab_lid)
+.get(verifytoken(), ctl.get_lab_lid)
 router.route("/:id/screening/:sid/laboratory/:lid")
-.put(ctl.put_lab_lid)
+.put(verifytoken(), ctl.put_lab_lid)
 router.route("/:id/screening/:sid/laboratory/:lid")
-.delete(ctl.del_lab_lid)
+.delete(verifytoken(), ctl.del_lab_lid)
 
 module.exports = router
