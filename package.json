@@ -1,5 +1,5 @@
 {
-  "name": "express",
+  "name": "api_thalassemia",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -14,6 +14,7 @@
     "body-parser": "^1.19.0",
     "crypto": "^1.0.1",
     "crypto-js": "^3.1.9-1",
+    "express": "^4.17.1",
     "express-generator": "^4.16.1",
     "express-promise-router": "^3.0.3",
     "fs": "0.0.1-security",
