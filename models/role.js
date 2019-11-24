@@ -121,7 +121,7 @@ exports.post = async function(req, res) {
             } else {
                 await connection.query(`SELECT role_id from role where role_name='${role_name}';`, async function (error, result, fields){
                     if(result.rowCount !== 0){
-                        response.bad_req('Name have been used', res)
+                        response.conflict('Name have been used', res)
                     } else {
                         Joi.validate(req.body, schema, async function (err, value) { 
                             if (err) {
@@ -250,7 +250,7 @@ exports.put = async function(req, res) {
             } else {
                 await connection.query(`SELECT role_id from role where role_name='${name}';`, async function (error, result, fields){
                     if(result.rowCount !== 0){
-                        response.bad_req('Name have been used', res)
+                        response.conflict('Name have been used', res)
                     } else {
                         Joi.validate(req.body, schema, async function (err, value) { 
                             if (err) {
