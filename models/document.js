@@ -3,9 +3,9 @@
 const response = require('../config/res')
 const connection = require('../config/database')
 const crypto = require('crypto')
-const host = require('../config/server.json').host
-const port = require('../config/server.json').port
-const ssl = require('../config/server.json').ssl
+const host = require('../config/config.json').host
+const port = require('../config/config.json').port
+const ssl = require('../config/config.json').ssl
 const uploadfile = require('express-fileupload')
 var fs = require ('fs');
 const Joi = require('joi');

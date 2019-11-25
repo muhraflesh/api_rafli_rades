@@ -3,9 +3,9 @@
 const response = require('../config/res')
 const connection = require('../config/database')
 const crypto = require('crypto')
-const host = require('../config/server.json').host
-const port = require('../config/server.json').port
-const ssl = require('../config/server.json').ssl
+const host = require('../config/config.json').host
+const port = require('../config/config.json').port
+const ssl = require('../config/config.json').ssl
 const uploadfile = require('express-fileupload')
 const fs = require ('fs');
 const Joi = require('joi');
@@ -177,7 +177,6 @@ exports.post = async function(req, res) {
                                             }
                                             dataProject.push(data_getProject)
                                         }
-                
                                         response.success_post_put("Create project successfully", dataProject, res)
                                     }
                                 });
@@ -558,7 +557,7 @@ exports.postMember = async function(req, res) {
         password: Joi.string().regex(/^[a-zA-Z0-9!*#$%_&]{3,30}$/).required(),
         mail: Joi.string().email({ minDomainAtoms: 2 }).required(),
         phone: Joi.number().integer().required(),
-        cardMember: Joi.string().valid('y', 'n').max(1).required(),
+        cardMember: Joi.string().valid('1', '0').max(1).required(),
         cardNumber: Joi.number().integer().required(),
         gender: Joi.string().max(10).required(),
         birthDate: Joi.required(),
@@ -763,7 +762,7 @@ exports.putMemberID = async function(req, res) {
         password: Joi.string().regex(/^[a-zA-Z0-9!*#$%_&]{3,30}$/),
         mail: Joi.string().email({ minDomainAtoms: 2 }),
         phone: Joi.number().integer(),
-        cardMember: Joi.string().valid('y', 'n').max(1),
+        cardMember: Joi.string().valid('1', '0').max(1),
         cardNumber: Joi.number().integer(),
         gender: Joi.string().max(10),
         birthDate: Joi,

@@ -2,7 +2,6 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const app = express();
 const fileupload = require('express-fileupload')
-const host = require('./config/server.json').host
 const port = process.env.PORT || 3000;
 
 app.use(require('sanitize').middleware);
@@ -20,6 +19,8 @@ app.use('/role', require('./router/role'))
 app.use('/document', require('./router/document'))
 app.use('/generateToken', require('./router/generatetoken'))
 app.use('/signUp', require('./router/signup'))
+app.use('/verification', require('./router/verification'))
+app.use('/signIn', require('./router/signin'))
 
 app.listen(port);
 console.log('Your API Server Started on : ' + port);
