@@ -420,9 +420,13 @@ module.exports = {
                 console.log(error)
                 response.server_error(error, res)
             }
-            else {
-                const docs = labres_func(result)
-                response.success_getID(docs, res)
+            else{
+                if(result.rowCount == 0){
+                    response.not_found('Lab result not found.', res)
+                }else{
+                    const docs = labres_func(result)
+                    response.labsuccess_get(docs, res)
+                }
             }
         })
     },
