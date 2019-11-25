@@ -77,6 +77,15 @@ exports.not_found = function(values, res) {
     res.end()
 }
 
+exports.conflict = function(values, res) {
+    var data = {
+        'code': 409,
+        'message': values
+    }
+    res.json(data)
+    res.end()
+}
+
 exports.server_error = function(values, res) {
     var data = {
         'code': 500,

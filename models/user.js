@@ -122,7 +122,6 @@ exports.post = async function(req, res) {
 
     var date_now = date.getUTCFullYear() + "-" + month + "-" + day + " " + hours + ":" + minutes + ":" + seconds;
 
-    var user_id = crypto.createHash('sha1').update('User/Member' + date_now).digest('hex');
     // REQ DARI CLIENT
     var firstname = req.body.firstName
     var lastname = req.body.lastName
@@ -135,6 +134,8 @@ exports.post = async function(req, res) {
     var gender = req.body.gender
     var birthdate = req.body.birthDate
     var role_id = req.body.roleId
+
+    var user_id = crypto.createHash('sha1').update('User/Member' + date_now + '' + mail).digest('hex');
 
     const schema = Joi.object().keys({
         firstName: Joi.string().alphanum().min(2).max(50).required(),
@@ -150,13 +151,13 @@ exports.post = async function(req, res) {
         roleId: Joi.required(),
     })
 
-    Joi.validate(req.body, schema, async function (err, value) { 
-        if (err) {
-            console.log(err.details[0].message)
-        } else {
-            console.log('SUKSES')
-        }
-    });
+    // Joi.validate(req.body, schema, async function (err, value) { 
+    //     if (err) {
+    //         console.log(err.details[0].message)
+    //     } else {
+    //         console.log('SUKSES')
+    //     }
+    // });
 
     var token = req.headers.token
     if(!req.headers.token) {
@@ -174,15 +175,15 @@ exports.post = async function(req, res) {
             } else {
                 await connection.query(`SELECT user_id from "user" where email='${mail}';`, async function (error, result, fields){
                     if(result.rowCount !== 0){
-                        response.bad_req('Email have been used', res)
+                        response.conflict('Email have been used', res)
                     } else {
                         await connection.query(`SELECT user_id from "user" where username='${username}';`, async function (error, result, fields){
                             if(result.rowCount !== 0){
-                                response.bad_req('Username have been used', res)
+                                response.conflict('Username have been used', res)
                             } else {
                                 await connection.query(`SELECT user_id from "user" where telephone='${phone}';`, async function (error, result, fields){
                                     if(result.rowCount !== 0){
-                                        response.bad_req('Telephone have been used', res)
+                                        response.conflict('Telephone have been used', res)
                                     } else {
                                         Joi.validate(req.body, schema, async function (err, value) { 
                                             if (err) {
@@ -364,15 +365,15 @@ exports.put = async function(req, res) {
                     } else {
                         await connection.query(`SELECT user_id from "user" where email='${email}';`, async function (error, result, fields){
                             if(result.rowCount !== 0){
-                                response.bad_req('Email have been used', res)
+                                response.conflict('Email have been used', res)
                             } else {
                                 await connection.query(`SELECT user_id from "user" where username='${username}';`, async function (error, result, fields){
                                     if(result.rowCount !== 0){
-                                        response.bad_req('Username have been used', res)
+                                        response.conflict('Username have been used', res)
                                     } else {
                                         await connection.query(`SELECT user_id from "user" where telephone='${phone}';`, async function (error, result, fields){
                                             if(result.rowCount !== 0){
-                                                response.bad_req('No. Telephone have been used', res)
+                                                response.conflict('Telephone have been used', res)
                                             } else {
                                                 Joi.validate(req.body, schema, async function (err, value) { 
                                                     if (err) {

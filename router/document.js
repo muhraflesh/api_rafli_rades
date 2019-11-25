@@ -15,4 +15,7 @@ router.route('/:id')
 router.route('/:id')
     .delete(Document.delete)
 
+router.route('/:id/download')
+    .get(Document.download)
+
 module.exports = router
