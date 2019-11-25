@@ -76,7 +76,7 @@ const res_func = (result) => {
             "state": row.address_state,
             "city": row.address_city,
             "address": row.address,
-            "detectionYear": row.detection_year,
+            "detectionYear": `${row.detection_year.getFullYear()}-${row.detection_year.getMonth()}-${row.detection_year.getDate()}`,
             "level1HealthFacilities": row.level_1_health_facilities,
             "levelOfEducation": row.level_of_education,
             "maritalStatus": row.marital_status,
@@ -135,7 +135,6 @@ const put_query = (req) => {
     if (req.body.occupation) x.push(`occupation  = '${req.body.occupation}'`)
     if (req.body.providerStatus) x.push(`provider_status  = '${req.body.providerStatus}'`)
     
-    console.log(x)
     x = x.toString()
     return x
 }
@@ -149,7 +148,7 @@ const labres_func = (result) => {
             id: row.laboratory_result_id,
             labName: row.laboratory_name,
             labNumber: row.laboratory_number,
-            visitDate: row.visit_date,
+            visitDate: `${row.visit_date.getFullYear()}-${row.visit_date.getMonth()}-${row.visit_date.getDate()}`,
             hemoglobin: row.hemoglobin,
             hematokrit: row.hematokrit,
             eritrosit: row.eritrosit,
@@ -181,6 +180,11 @@ const labres_func = (result) => {
 }
 const labpost_docs = (req) => {
     date = get_date()
+    let anemiaStatus
+    switch (req.body.anemiaStatus){
+        case true : anemiaStatus = "1"
+        case false : anemiaStatus = "0"
+    }
     return x = {
         user_screening_id: req.params.sid,
         laboratory_result_id: get_id(date, 'laboratory'),
@@ -207,14 +211,14 @@ const labpost_docs = (req) => {
         hba2: req.body.hba2,
         hbf: req.body.hbf,
         hb_status: req.body.hbStatus,
-        anemia_status: req.body.anemiaStatus,
+        anemia_status: anemiaStatus,
         shine_and_lal: req.body.shineAndLal,
         susp_hemoglobinopathy: req.body.suspHemoglobinopathy,
         type: req.body.type
     }
 }
 const labput_query = (req) => {
-    let x = [""]
+    let x = []
     
     if (req.body.labName) x.push(`laboratory_name = '${req.body.labName}'`)
     if (req.body.labNumber) x.push(`laboratory_number = '${req.body.labNumber}'`)
@@ -223,6 +227,7 @@ const labput_query = (req) => {
     if (req.body.hematokrit) x.push(`hematokrit = '${req.body.hematokrit}'`)
     if (req.body.eritrosit) x.push(`eritrosit = '${req.body.eritrosit}'`) 
     if (req.body.neutrofil) x.push(`neutrofil  = '${req.body.neutrofil}'`)
+    if (req.body.mcv) x.push(`mcv  = '${req.body.mcv}'`)
     if (req.body.mch) x.push(`mch  = '${req.body.mch}'`)
     if (req.body.mchc) x.push(`mchc  = '${req.body.mchc}'`)
     if (req.body.rdw_cv) x.push(`rdw_cv  = '${req.body.rdw_cv}'`)
@@ -237,13 +242,12 @@ const labput_query = (req) => {
     if (req.body.led) x.push(`led  = '${req.body.led}'`)
     if (req.body.hba2) x.push(`hba2  = '${req.body.hba2}'`)
     if (req.body.hbf) x.push(`hbf  = '${req.body.hbf}'`)
-    if (req.body.hb_status) x.push(`hb_status  = '${req.body.hb_status}'`)
+    if (req.body.hbStatus) x.push(`hb_status  = '${req.body.hbStatus}'`)
     if (req.body.anemiaStatus) x.push(`anemia_status  = '${req.body.anemiaStatus}'`)
     if (req.body.shineAndLal) x.push(`shine_and_lal  = '${req.body.shineAndLal}'`)
     if (req.body.suspHemoglobinopathy) x.push(`susp_hemoglobinopathy  = '${req.body.suspHemoglobinopathy}'`)
     if (req.body.type) x.push(`type  = '${req.body.type}'`)
-    
-    console.log(x)
+
     x = x.toString()
     return x
 }
@@ -426,7 +430,7 @@ module.exports = {
     put_lab_lid : async (req, res, next) => {
         const req_query = labput_query(req)
         const query = `UPDATE public."laboratory_result" SET ${req_query} WHERE laboratory_result_id = '${req.params.lid}' AND user_screening_id = '${req.params.sid}';`
-        
+        console.log(query)
         connection.query(query, async (error, result, fields) => {
             if (error) {
                 console.log(error)
@@ -448,7 +452,7 @@ module.exports = {
     },
 
     del_lab_lid : async (req, res, next) => {
-        const query = `DELETE FROM public."laboratory_result" WHERE user_screening_id = '${req.params.sid}' AND laboratory_result_id = ${req.params.lid};`
+        const query = `DELETE FROM public."laboratory_result" WHERE user_screening_id = '${req.params.sid}' AND laboratory_result_id = '${req.params.lid}';`
         await connection.query(query, (error, result, fields) => {
             if (error) {
                 console.log(error)

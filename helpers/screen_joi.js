@@ -54,7 +54,7 @@ module.exports = {
             hba2: joi.string().max(11),
             hbf: joi.string().max(11),
             hbStatus: joi.string().max(11),
-            anemiaStatus: joi.string().max(50),
+            anemiaStatus: joi.boolean(),
             shineAndLal: joi.string().max(11),
             suspHemoglobinopathy: joi.string().max(50),
             type: joi.string().max(50)
