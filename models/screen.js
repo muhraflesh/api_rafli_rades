@@ -89,11 +89,18 @@ const res_func = (result) => {
     return [docs, i]
 }
 const post_docs = async (req) => {
-    return x = {
-    date : get_date(),
-    id : get_id(x.date, "screening"),
+    const date = get_date()
+    let providerStatus
+    switch (req.body.providerStatus){
+        case true : providerStatus = "1"
+        case false : providerStatus = "0"
+    } 
+    return {
+    date : date,
+    id : get_id(get_date(), "screening"),
     user_id : req.params.id,
     kk_number : req.body.kk,
+    nik : req.body.nik,
     blood_type : req.body.bloodType,
     father_name : req.body.fatherName, 
     mother_name : req.body.motherName,
@@ -106,13 +113,14 @@ const post_docs = async (req) => {
     level_of_education : req.body.levelOfEducation,
     marital_status : req.body.maritalStatus,
     occupation : req.body.occupation,
-    provider_status : req.body.providerStatus
+    provider_status : providerStatus
     }
 }
 const put_query = (req) => {
     let x = [""]
     
     if (req.body.kk) x.push(`kk_number = '${req.body.kk}'`)
+    if (req.body.nik) x.push(`nik = '${req.body.nik}'`)
     if (req.body.bloodType) x.push(`blood_type = '${req.body.bloodType}'`)
     if (req.body.fatherName) x.push(`father_name = '${req.body.fatherName}'`) 
     if (req.body.motherName) x.push(`mother_name = '${req.body.motherName}'`)
@@ -263,15 +271,19 @@ module.exports = {
                 response.server_error(error, res)
             }
             else{
-                const docs = res_func(result)
-                response.success_get(docs[0], offset, limit, docs[1], res)
+                if(result.rowCount == 0){
+                    response.not_found('Screening not found.', res)
+                } else{    
+                    const docs = res_func(result)
+                    response.success_get(docs[0], offset, limit, docs[1], res)
+                }
             }
         })
     },
 
     post_scr : async (req, res, next) => {
         const x = await post_docs(req)
-        const query = `INSERT INTO public."user_screening"(user_screening_id, user_id, create_date, kk_number, blood_type, father_name, mother_name, popti_city, address_state, address_city, address, detection_year, level_1_health_facilities, level_of_education, marital_status, occupation, provider_status) VALUES ('${x.id}', '${x.user_id}', '${x.date}', '${x.kk_number}', '${x.blood_type}', '${x.father_name}', '${x.mother_name}', '${x.popti_city}', '${x.address_state}', '${x.address_city}', '${x.address}', '${x.detection_year}', '${x.level_1_health_facilities}', '${x.level_of_education}', '${x.marital_status}', '${x.occupation}', '${x.provider_status}');`
+        const query = `INSERT INTO public."user_screening"(user_screening_id, user_id, create_date, kk_number, nik, blood_type, father_name, mother_name, popti_city, address_state, address_city, address, detection_year, level_1_health_facilities, level_of_education, marital_status, occupation, provider_status) VALUES ('${x.id}', '${x.user_id}', '${x.date}', '${x.kk_number}', '${x.nik}', '${x.blood_type}', '${x.father_name}', '${x.mother_name}', '${x.popti_city}', '${x.address_state}', '${x.address_city}', '${x.address}', '${x.detection_year}', '${x.level_1_health_facilities}', '${x.level_of_education}', '${x.marital_status}', '${x.occupation}', '${x.provider_status}');`
         await connection.query(query, async (error, result, fields) => {
             if (error) {
                 console.log(error)
@@ -299,8 +311,12 @@ module.exports = {
                 response.server_error(error, res)
             }
             else{
-                const docs = res_func(result)
-                response.success_getID(docs, res)
+                if(result.rowCount == 0){
+                    response.not_found('Screening not found.', res)
+                } else{
+                    const docs = res_func(result)
+                    response.success_getID(docs, res)
+                }
             }
         })
     },
@@ -331,7 +347,7 @@ module.exports = {
     },
 
     del_scr_sid : async (req, res, next) => {
-        const query = `DELETE FROM public."user_screening" WHERE user_screening_id = '${req.params.sid}' AND user_id = ${req.params.id};`
+        const query = `DELETE FROM public."user_screening" WHERE user_screening_id = '${req.params.sid}' AND user_id = '${req.params.id}';`
         await connection.query(query, (error, result, fields) => {
             if (error) {
                 console.log(error)
@@ -360,8 +376,12 @@ module.exports = {
                 response.server_error(error, res)
             }
             else{
-                const docs = labres_func(result)
-                response.labsuccess_get(docs, res)
+                if(result.rowCount == 0){
+                    response.not_found('Lab result not found.', res)
+                }else{
+                    const docs = labres_func(result)
+                    response.labsuccess_get(docs, res)
+                }
             }
         })
     },
