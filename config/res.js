@@ -94,3 +94,12 @@ exports.server_error = function(values, res) {
     res.json(data)
     res.end()
 }
+
+exports.labsuccess_get = (rows, res) => {
+    const data = {
+        'code' : 200,
+        'data' : rows 
+    }
+    res.json(data)
+    res.end()
+}
