@@ -1,6 +1,6 @@
 var Pool = require('pg').Pool;
 var connection = new Pool({
-    user: 'raflesh',
+    user: 'postgres',
     host: '127.0.0.1',
     database: 'thalassaemia_v2',
     password: '123',
