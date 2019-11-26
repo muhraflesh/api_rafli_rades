@@ -14,22 +14,26 @@ exports.generateToken = function(req, res) {
     
     let date = new Date();
     let day = date.getUTCDate(), month = date.getUTCMonth()+1;
-    let hours = date.getHours()+1;
+    let hours = date.getHours();
+    let hours_expired = date.getHours()+1;
     let minutes = date.getMinutes()
     let seconds = date.getSeconds()
 
     day < 10 ? day = 0 + "" + day : day;
     month < 10 ? month = 0 + "" + month : month;
     hours < 10 ? hours = 0 + "" + hours : hours;
+    hours_expired < 10 ? hours_expired = 0 + "" + hours_expired : hours_expired;
     minutes < 10 ? minutes = 0 + "" + minutes : minutes;
     seconds < 10 ? seconds = 0 + "" + seconds : seconds;
 
-    var token_expired = date.getUTCFullYear() + "-" + month + "-" + day + " " + hours + ":" + minutes + ":" + seconds;
+    var token_expired = date.getUTCFullYear() + "-" + month + "-" + day + " " + hours_expired + ":" + minutes + ":" + seconds;
+    console.log(token_expired)
+    var date_now = date.getUTCFullYear() + "-" + month + "-" + day + " " + hours + ":" + minutes + ":" + seconds;
     console.log(token_expired)
 
     var apikey = req.headers.apikey
     var apisecret = req.headers.apisecret
-    var apitoken = crypto.createHash('sha1').update(apikey + apisecret).digest('hex');
+    var apitoken = crypto.createHash('sha1').update(apikey + apisecret + date_now).digest('hex');
     console.log(apitoken)
 
     connection.query(
@@ -40,23 +44,39 @@ exports.generateToken = function(req, res) {
         } else if(result.rowCount == 0) {
             response.bad_req('Your Apikey or Apisecret is False', res)
         } else {
-            await connection.query(`UPDATE "user" SET "token"='${apitoken}', token_expired='${token_expired}' where apikey='${apikey}' and apisecret='${apisecret}';`, function (error, result, fields){
+            await connection.query(`SELECT "token", token_expired FROM "user" WHERE apisecret='${apisecret}' AND apikey='${apikey}'`, async function (error, result, fields){
                 if(error){
                     console.log(error)
                 } else {
-                    connection.query(
-                    `SELECT "token", token_expired FROM "user" WHERE apisecret='${apisecret}' AND apikey='${apikey}'`,
-                    async function (error, result, fields){
-                        if(error){
-                            console.log(error)
-                        } else {
-                            var dataToken = [{
-                                "token": result.rows[0].token,
-                                "tokenExpired": result.rows[0].token_expired
-                            }]
-                            response.success_generateToken(dataToken, res)
-                        }
-                    });
+                    var token_active = result.rows[0].token
+                    var token_expired_active = result.rows[0].token_expired
+                    if(date_now < token_expired_active) {
+                        var dataToken = [{
+                            "token": token_active,
+                            "tokenExpired": token_expired_active
+                        }]
+                        response.success_generateToken(dataToken, res)
+                    } else {
+                        await connection.query(`UPDATE "user" SET "token"='${apitoken}', token_expired='${token_expired}' where apikey='${apikey}' and apisecret='${apisecret}';`, function (error, result, fields){
+                            if(error){
+                                console.log(error)
+                            } else {
+                                connection.query(
+                                `SELECT "token", token_expired FROM "user" WHERE apisecret='${apisecret}' AND apikey='${apikey}'`,
+                                async function (error, result, fields){
+                                    if(error){
+                                        console.log(error)
+                                    } else {
+                                        var dataToken = [{
+                                            "token": result.rows[0].token,
+                                            "tokenExpired": result.rows[0].token_expired
+                                        }]
+                                        response.success_generateToken(dataToken, res)
+                                    }
+                                });
+                            }
+                        })
+                    }
                 }
             })
         }
@@ -82,8 +102,7 @@ exports.signUp = async function(req, res) {
 
     var username = req.body.username
     var email = req.body.email
-    var telephone
-    req.body.phone ? telephone = req.body.phone : telephone = null
+    var telephone = req.body.phone
     var user_id = crypto.createHash('sha1').update('User/Member' + date_now + '' + username).digest('hex');
     var verification_id = crypto.createHash('sha1').update('Verification' + date_now).digest('hex');
     var verification_hash = crypto.createHash('sha1').update('Verification-Hash' + date_now).digest('hex');
@@ -106,8 +125,8 @@ exports.signUp = async function(req, res) {
     var link= link_verification + verification_hash;
     var mailOptions = {
         to : email,
-        subject : "Please confirm your Email account",
-        html : "Hello,<br> Please Click on the link to verify your email.<br><a href="+link+">Click here to verify</a>" 
+        subject : "Please confirm your Account",
+        html : `Hello ${username},<br> Please Click on the link to verify your email.<br><a href=${link}>Click here to verify</a>`
     }
 
     await connection.query(`SELECT user_id from "user" where email='${email}';`, async function (error, result, fields){
@@ -126,22 +145,32 @@ exports.signUp = async function(req, res) {
                                 if (err) {
                                     response.bad_req(err.details[0].message, res)
                                 } else {
-                                    await connection.query(`INSERT INTO "user" (user_id, username, email, telephone, create_date, update_date, verification_id) VALUES ('${user_id}', '${username}', '${email}', '${telephone}', '${date_now}', '${date_now}', '${verification_id}');`, async function (error, result, fields){
+                                    await connection.query(`SELECT role_id from role where LOWER(role_name)=LOWER('member')`, async function (error, result, fields){
                                         if(error){
                                             console.log(error)
                                         } else {
-                                            await connection.query(`INSERT INTO verification (verification_id, verification_hash, verification_expired, verification_status, create_date, update_date) VALUES ('${verification_id}', '${verification_hash}', '${verification_expired}', '${verification_status}', '${date_now}', '${date_now}');`, function (error, result, fields){
+                                            var role_id = result.rows[0].role_id
+                                            await connection.query(`INSERT INTO "user" (user_id, username, email, create_date, verification_id, role_id) VALUES ('${user_id}', '${username}', '${email}', '${date_now}', '${verification_id}', '${role_id}');`, async function (error, result, fields){
                                                 if(error){
                                                     console.log(error)
                                                 } else {
-                                                    smtpTransport.sendMail(mailOptions, function(error){
+                                                    if(telephone){
+                                                        await connection.query(`UPDATE "user" SET telephone='${telephone}' where user_id='${user_id}';`)
+                                                    }
+                                                    await connection.query(`INSERT INTO verification (verification_id, verification_hash, verification_expired, verification_status, create_date) VALUES ('${verification_id}', '${verification_hash}', '${verification_expired}', '${verification_status}', '${date_now}');`, function (error, result, fields){
                                                         if(error){
-                                                            console.log(error);
-                                                            res.end("error");
-                                                        } else { 
-                                                            response.success_getID('Registration have been success, please check your email to verification', res)
+                                                            console.log(error)
+                                                        } else {
+                                                            smtpTransport.sendMail(mailOptions, function(error){
+                                                                if(error){
+                                                                    console.log(error);
+                                                                    res.end("error");
+                                                                } else { 
+                                                                    response.success_getID('Registration have been success, please check your email to verification', res)
+                                                                }
+                                                            });
                                                         }
-                                                    });
+                                                    })
                                                 }
                                             })
                                         }
@@ -175,14 +204,14 @@ exports.verification = async function(req, res) {
     var verification_hash = req.query.hash
     var apikey = crypto.createHash('sha1').update('APIKEY' + date_now).digest('hex')
     var apisecret = crypto.createHash('sha1').update('APISECRET' + date_now).digest('hex')
-    var apitoken = crypto.createHash('sha1').update(apikey + apisecret).digest('hex');
+    var apitoken = crypto.createHash('sha1').update(apikey + apisecret + date_now).digest('hex');
     var token_expired = date.getUTCFullYear() + "-" + month + "-" + day + " " + hours_expired + ":" + minutes + ":" + seconds;
 
     await connection.query(`SELECT verification_expired, verification_id FROM verification WHERE verification_hash = '${verification_hash}';`, async function (error, result, fields){
         if(error){
             console.log(error)
         } else if (result.rowCount == 0) {
-            response.unauthor('Your verification is expired', res)
+            response.not_found('Hash code not found', res)
         } else if (date_now > result.rows[0].verification_expired) {
             response.unauthor('Your verification is expired', res)
         } else {
@@ -197,7 +226,7 @@ exports.verification = async function(req, res) {
                             console.log(error)
                         } else {
                             var user_id = result.rows[0].user_id
-                            await connection.query(`UPDATE "user" SET apikey = '${apikey}', apisecret = '${apisecret}', token = '${apitoken}', token_expired = '${token_expired}' WHERE user_id='${user_id}'`, async function (error, result, fields){
+                            await connection.query(`UPDATE "user" SET apikey = '${apikey}', apisecret = '${apisecret}', token = '${apitoken}', token_expired = '${token_expired}', is_active='1' WHERE user_id='${user_id}'`, async function (error, result, fields){
                                 if(error) {
                                     console.log(error)
                                 } else {
@@ -285,46 +314,96 @@ exports.signIn = async function(req, res) {
                         if (err) {
                             response.bad_req(err.details[0].message, res)
                         } else {
-                            await connection.query(`SELECT apikey, apisecret, user_id FROM "user" WHERE username = '${username}' and password = '${password}';`, async function (error, result, fields){
+                            await connection.query(`SELECT is_login FROM "user" WHERE username = '${username}' and password = '${password}';`, async function (error, result, fields){
                                 if(error){
                                     console.log(error)
+                                } else if (result.rows[0].is_login == 1 ) {
+                                    response.unauthor('User is login', res)
                                 } else {
-                                    var apikey = result.rows[0].apikey
-                                    var apisecret = result.rows[0].apisecret
-                                    var apitoken = crypto.createHash('sha1').update(apikey + apisecret).digest('hex');
-                                    var token_expired = date.getUTCFullYear() + "-" + month + "-" + day + " " + hours_expired + ":" + minutes + ":" + seconds;
-                                    var user_id = result.rows[0].user_id
-        
-                                    await connection.query(`UPDATE "user" SET token = '${apitoken}', token_expired = '${token_expired}', is_active = '1', is_login = '1' WHERE user_id='${user_id}'`, async function (error, result, fields){
-                                        if(error) {
+                                    await connection.query(`SELECT apikey, apisecret, user_id FROM "user" WHERE username = '${username}' and password = '${password}';`, async function (error, result, fields){
+                                        if(error){
                                             console.log(error)
                                         } else {
-                                            await connection.query(`SELECT user_id, firstname, lastname, username, email, telephone, gender, apikey, apisecret, token, token_expired, is_active, is_login  FROM "user" WHERE user_id='${user_id}';`, function (error, result, fields){
+                                            var apikey = result.rows[0].apikey
+                                            var apisecret = result.rows[0].apisecret
+                                            var apitoken = crypto.createHash('sha1').update(apikey + apisecret + date_now).digest('hex');
+                                            var token_expired = date.getUTCFullYear() + "-" + month + "-" + day + " " + hours_expired + ":" + minutes + ":" + seconds;
+                                            var user_id = result.rows[0].user_id
+                                            
+                                            await connection.query(`SELECT "token", token_expired FROM "user" WHERE apisecret='${apisecret}' AND apikey='${apikey}'`, async function (error, result, fields){
                                                 if(error){
                                                     console.log(error)
-                                                } else{
-                                                    var dataUser = []
-                                                    for (var i = 0; i < result.rows.length; i++) {
-                                                        var row = result.rows[i];
-                                                            var data_getUser = {
-                                                                "id": row.user_id,
-                                                                "firstName": row.firstname,
-                                                                "lastName": row.lastname,
-                                                                "userName": row.username,
-                                                                "mail": row.email,
-                                                                "phone": row.telephone,
-                                                                "isActive": row.is_active,
-                                                                "isLogin": row.is_login,
-                                                                "apiKey": row.apikey,
-                                                                "apiSecret": row.apisecret,
-                                                                "token": row.token,
-                                                                "tokenExpired": row.token_expired
+                                                } else {
+                                                    var token_expired_active = result.rows[0].token_expired
+                                                    if(date_now < token_expired_active) {
+                                                        await connection.query(`UPDATE "user" SET is_login = '1' WHERE user_id='${user_id}'`, async function (error, result, fields){
+                                                            if(error) {
+                                                                console.log(error)
+                                                            } else {
+                                                                await connection.query(`SELECT user_id, firstname, lastname, username, email, telephone, gender, apikey, apisecret, token, token_expired, is_active, is_login  FROM "user" WHERE user_id='${user_id}';`, function (error, result, fields){
+                                                                    if(error){
+                                                                        console.log(error)
+                                                                    } else{
+                                                                        var dataUser = []
+                                                                        for (var i = 0; i < result.rows.length; i++) {
+                                                                            var row = result.rows[i];
+                                                                                var data_getUser = {
+                                                                                    "id": row.user_id,
+                                                                                    "firstName": row.firstname,
+                                                                                    "lastName": row.lastname,
+                                                                                    "userName": row.username,
+                                                                                    "mail": row.email,
+                                                                                    "phone": row.telephone,
+                                                                                    "isActive": row.is_active,
+                                                                                    "isLogin": row.is_login,
+                                                                                    "apiKey": row.apikey,
+                                                                                    "apiSecret": row.apisecret,
+                                                                                    "token": row.token,
+                                                                                    "tokenExpired": row.token_expired
+                                                                                }
+                                                                                dataUser.push(data_getUser)
+                                                                        }
+                                                                        response.success_post_put("Log on have been success", dataUser, res)
+                                                                    }
+                                                                });
                                                             }
-                                                            dataUser.push(data_getUser)
+                                                        })
+                                                    } else {
+                                                        await connection.query(`UPDATE "user" SET token = '${apitoken}', token_expired = '${token_expired}', is_login = '1' WHERE user_id='${user_id}'`, async function (error, result, fields){
+                                                            if(error) {
+                                                                console.log(error)
+                                                            } else {
+                                                                await connection.query(`SELECT user_id, firstname, lastname, username, email, telephone, gender, apikey, apisecret, token, token_expired, is_active, is_login  FROM "user" WHERE user_id='${user_id}';`, function (error, result, fields){
+                                                                    if(error){
+                                                                        console.log(error)
+                                                                    } else{
+                                                                        var dataUser = []
+                                                                        for (var i = 0; i < result.rows.length; i++) {
+                                                                            var row = result.rows[i];
+                                                                                var data_getUser = {
+                                                                                    "id": row.user_id,
+                                                                                    "firstName": row.firstname,
+                                                                                    "lastName": row.lastname,
+                                                                                    "userName": row.username,
+                                                                                    "mail": row.email,
+                                                                                    "phone": row.telephone,
+                                                                                    "isActive": row.is_active,
+                                                                                    "isLogin": row.is_login,
+                                                                                    "apiKey": row.apikey,
+                                                                                    "apiSecret": row.apisecret,
+                                                                                    "token": row.token,
+                                                                                    "tokenExpired": row.token_expired
+                                                                                }
+                                                                                dataUser.push(data_getUser)
+                                                                        }
+                                                                        response.success_post_put("Log on have been success", dataUser, res)
+                                                                    }
+                                                                });
+                                                            }
+                                                        })
                                                     }
-                                                    response.success_post_put("Log on have been success", dataUser, res)
                                                 }
-                                            });
+                                            })
                                         }
                                     })
                                 }
@@ -332,6 +411,41 @@ exports.signIn = async function(req, res) {
                         }
                     })
                 }
+            })
+        }
+    })
+}
+
+exports.signOut = async function(req, res) {
+    let date = new Date();
+    let day = date.getUTCDate(), month = date.getUTCMonth()+1;
+    let hours = date.getHours();
+    let hours_expired = date.getHours()+1;
+    let minutes = date.getMinutes()
+    let seconds = date.getSeconds()
+    
+    day < 10 ? day = 0 + "" + day : day;
+    month < 10 ? month = 0 + "" + month : month;
+    hours < 10 ? hours = 0 + "" + hours : hours;
+    hours_expired < 10 ? hours_expired = 0 + "" + hours_expired : hours_expired;
+    minutes < 10 ? minutes = 0 + "" + minutes : minutes;
+    seconds < 10 ? seconds = 0 + "" + seconds : seconds;
+
+    var date_now = date.getUTCFullYear() + "-" + month + "-" + day + " " + hours + ":" + minutes + ":" + seconds;
+    var token = req.headers.token
+
+    await connection.query(`SELECT user_id FROM "user" WHERE token = '${token}';`, async function (error, result, fields){
+        if(error){
+            console.log(error)
+        } else if (result.rowCount == 0 ) {
+            response.not_found('User Not Found', res)
+        } else {
+            await connection.query(`UPDATE "user" SET token_expired='${date_now}', is_login='0' where token='${token}'`, async function (error, result, fields){
+                if(error){
+                    console.log(error)
+                } else {
+                    response.success_delete('Log out have been success', res)
+                } 
             })
         }
     })

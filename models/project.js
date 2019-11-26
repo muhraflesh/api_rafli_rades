@@ -44,7 +44,7 @@ exports.get = function(req, res) {
             
                 if(req.query.name || req.query.desc || req.query.addr || req.query.cdate || req.query.cby) {
                     connection.query(
-                        `SELECT * FROM project WHERE LOWER(project_name) LIKE LOWER('%${req.query.name}%') or LOWER(project_description) LIKE LOWER('%${req.query.desc}%') or LOWER(project_address) LIKE LOWER('%${req.query.addr}%') or LOWER(create_by) LIKE LOWER('%${req.query.cby}%') or create_date LIKE '${req.query.cdate}' order by project_name offset ${offset} limit ${limit}`,
+                        `SELECT * FROM project WHERE LOWER(project_name) LIKE LOWER('%${req.query.name}%') and LOWER(project_description) LIKE LOWER('%${req.query.desc}%') and LOWER(project_address) LIKE LOWER('%${req.query.addr}%') and LOWER(create_by) LIKE LOWER('%${req.query.cby}%') and create_date LIKE '${req.query.cdate}%' order by project_name offset ${offset} limit ${limit}`,
                         function (error, result, fields){
                         if(error){
                             console.log(error)
@@ -66,6 +66,7 @@ exports.get = function(req, res) {
                                 }
                                 dataProject.push(data_getProject)
                             }
+                            limit = 'All' ? i : req.query.limit;
                             response.success_get(dataProject, offset, limit, i, res)
                         }
                     });
@@ -93,7 +94,7 @@ exports.get = function(req, res) {
                                 }
                                 dataProject.push(data_getProject)
                             }
-            
+                            limit = 'All' ? i : req.query.limit;
                             response.success_get(dataProject, offset, limit, i, res)
                         }
                     });
@@ -101,7 +102,6 @@ exports.get = function(req, res) {
             }
         });
     }
-
 }
 
 exports.post = async function(req, res) {
@@ -154,34 +154,53 @@ exports.post = async function(req, res) {
                     if (err) {
                         response.bad_req(err.details[0].message, res)
                     } else {
-                        await connection.query(`INSERT INTO project(project_id, project_name, project_description, project_address, longitude, latitude, create_date, update_date) VALUES ('${proj_id}', '${proj_name}', '${proj_desc}', '${proj_address}', '${longitude}', '${latitude}', '${date_now}', '${date_now}')`, async function (error, result, fields){
-                            if(!error){
-                                await connection.query(`SELECT * from project where project_id='${proj_id}'`, function (error, result, fields){
+                        await connection.query(`SELECT username, role_id from "user" where token='${token}'`, async function (error, result, fields){
+                            if(error){
+                                console.log(error)
+                            } else{
+                                var username_create = result.rows[0].username
+                                var role_id_checking = result.rows[0].role_id
+                                await connection.query(`SELECT lower(a.role_name) from role a LEFT JOIN "user" b on a.role_id=b.role_id where a.role_id='${role_id_checking}'`, async function (error, result, fields){
                                     if(error){
                                         console.log(error)
-                                    } else{
-                                        var dataProject = []
-                                        for (var i = 0; i < result.rows.length; i++) {
-                                            var row = result.rows[i];
-                                            var data_getProject = {
-                                                "id": row.project_id,
-                                                "name": row.project_name,
-                                                "description": row.project_description,
-                                                "address": row.project_address,
-                                                "longitude": row.longitude,
-                                                "latitude": row.latitude,
-                                                "createDate": row.create_date,
-                                                "updateDate": row.update_date,
-                                                "createBy": row.create_by,
-                                                "updateBy": row.update_by
-                                            }
-                                            dataProject.push(data_getProject)
+                                    } else {
+                                        var role_name_checking = result.rows[0].lower
+                                        if(role_name_checking !== 'super_admin' & role_name_checking !== 'yti') {
+                                            response.unauthor('You are not allowed to create project', res)
+                                        } else {
+                                            await connection.query(`INSERT INTO project(project_id, project_name, project_description, project_address, longitude, latitude, create_date, create_by) VALUES ('${proj_id}', '${proj_name}', '${proj_desc}', '${proj_address}', '${longitude}', '${latitude}', '${date_now}', '${username_create}')`, async function (error, result, fields){
+                                                if(!error){
+                                                    await connection.query(`SELECT * from project where project_id='${proj_id}'`, function (error, result, fields){
+                                                        if(error){
+                                                            console.log(error)
+                                                        } else{
+                                                            var dataProject = []
+                                                            for (var i = 0; i < result.rows.length; i++) {
+                                                                var row = result.rows[i];
+                                                                var data_getProject = {
+                                                                    "id": row.project_id,
+                                                                    "name": row.project_name,
+                                                                    "description": row.project_description,
+                                                                    "address": row.project_address,
+                                                                    "longitude": row.longitude,
+                                                                    "latitude": row.latitude,
+                                                                    "createDate": row.create_date,
+                                                                    "updateDate": row.update_date,
+                                                                    "createBy": row.create_by,
+                                                                    "updateBy": row.update_by
+                                                                }
+                                                                dataProject.push(data_getProject)
+                                                            }
+                                                            response.success_post_put("Create project successfully", dataProject, res)
+                                                        }
+                                                    });
+                                                }
+                                            });
                                         }
-                                        response.success_post_put("Create project successfully", dataProject, res)
                                     }
-                                });
+                                })
                             }
-                        });
+                        })
                     }
                 });
             }
@@ -301,58 +320,77 @@ exports.put = async function(req, res) {
                             if (err) {
                                 response.bad_req(err.details[0].message, res)
                             } else {
-                                let query = "UPDATE project SET "
-                                let flag = false
-                                if(proj_name){
-                                    query = query + `project_name = '${proj_name}'`
-                                    flag = true
-                                }
-                                if(proj_desc){
-                                    flag == true ? query = query + `, project_description = '${proj_desc}'` : query = query + `project_description = '${proj_desc}'`
-                                    flag = true
-                                }
-                                if(proj_address){
-                                    flag == true ? query = query + `, project_address = '${proj_address}'` : query = query + `project_address = '${proj_address}'`
-                                    flag = true
-                                }
-                                if(longitude){
-                                    flag == true ? query = query + `, longitude = '${longitude}'` : query = query + `longitude = '${longitude}'`
-                                    flag = true
-                                }
-                                if(latitude){
-                                    flag == true ? query = query + `, latitude = '${latitude}'` : query = query + `latitude = '${latitude}'`
-                                    flag = true
-                                }
-                                query = query + `, update_date = '${date_now}' where project_id='${proj_id}';`
-                                console.log(query)
-                                await connection.query(query, async function (error, result, fields){
-                                    if(!error){
-                                        await connection.query(`SELECT * FROM project WHERE project_id='${proj_id}'`, function (error, result, fields){
+                                await connection.query(`SELECT username, role_id from "user" where token='${token}'`, async function (error, result, fields){
+                                    if(error){
+                                        console.log(error)
+                                    } else{
+                                        var username_update = result.rows[0].username
+                                        var role_id_checking = result.rows[0].role_id
+                                        await connection.query(`SELECT lower(a.role_name) from role a LEFT JOIN "user" b on a.role_id=b.role_id where a.role_id='${role_id_checking}'`, async function (error, result, fields){
                                             if(error){
                                                 console.log(error)
                                             } else {
-                                                var dataProject = []
-                                                for (var i = 0; i < result.rows.length; i++) {
-                                                    var row = result.rows[i];
-                                                    var data_getProject = {
-                                                        "id": row.project_id,
-                                                        "name": row.project_name,
-                                                        "description": row.project_description,
-                                                        "address": row.project_address,
-                                                        "longitude": row.longitude,
-                                                        "latitude": row.latitude,
-                                                        "createDate": row.create_date,
-                                                        "updateDate": row.update_date,
-                                                        "createBy": row.create_by,
-                                                        "updateBy": row.update_by
+                                                var role_name_checking = result.rows[0].lower
+                                                if(role_name_checking !== 'super_admin' & role_name_checking !== 'yti') {
+                                                    response.unauthor('You are not allowed to update project', res)
+                                                } else {
+                                                    let query = "UPDATE project SET "
+                                                    let flag = false
+                                                    if(proj_name){
+                                                        query = query + `project_name = '${proj_name}'`
+                                                        flag = true
                                                     }
-                                                    dataProject.push(data_getProject)
+                                                    if(proj_desc){
+                                                        flag == true ? query = query + `, project_description = '${proj_desc}'` : query = query + `project_description = '${proj_desc}'`
+                                                        flag = true
+                                                    }
+                                                    if(proj_address){
+                                                        flag == true ? query = query + `, project_address = '${proj_address}'` : query = query + `project_address = '${proj_address}'`
+                                                        flag = true
+                                                    }
+                                                    if(longitude){
+                                                        flag == true ? query = query + `, longitude = '${longitude}'` : query = query + `longitude = '${longitude}'`
+                                                        flag = true
+                                                    }
+                                                    if(latitude){
+                                                        flag == true ? query = query + `, latitude = '${latitude}'` : query = query + `latitude = '${latitude}'`
+                                                        flag = true
+                                                    }
+                                                    query = query + `, update_date = '${date_now}', update_by = '${username_update}' where project_id='${proj_id}';`
+                                                    console.log(query)
+                                                    await connection.query(query, async function (error, result, fields){
+                                                        if(!error){
+                                                            await connection.query(`SELECT * FROM project WHERE project_id='${proj_id}'`, function (error, result, fields){
+                                                                if(error){
+                                                                    console.log(error)
+                                                                } else {
+                                                                    var dataProject = []
+                                                                    for (var i = 0; i < result.rows.length; i++) {
+                                                                        var row = result.rows[i];
+                                                                        var data_getProject = {
+                                                                            "id": row.project_id,
+                                                                            "name": row.project_name,
+                                                                            "description": row.project_description,
+                                                                            "address": row.project_address,
+                                                                            "longitude": row.longitude,
+                                                                            "latitude": row.latitude,
+                                                                            "createDate": row.create_date,
+                                                                            "updateDate": row.update_date,
+                                                                            "createBy": row.create_by,
+                                                                            "updateBy": row.update_by
+                                                                        }
+                                                                        dataProject.push(data_getProject)
+                                                                    }
+                                                                    response.success_post_put('Project have been update', dataProject, res)
+                                                                }
+                                                            });
+                                                        }
+                                                    });
                                                 }
-                                                response.success_post_put('Project have been update', dataProject, res)
                                             }
-                                        });
+                                        })
                                     }
-                                });
+                                })
                             }
                         });
                     }
@@ -393,13 +431,31 @@ exports.delete = function(req, res) {
             } else if (date_now > result.rows[0].token_expired) {
                 response.unauthor('Your Token Is Expired', res)
             } else {
-                connection.query(`DELETE FROM project WHERE project_id='${proj_id}'`, function (error, result, fields){
-                    if(result.rowCount == 0){
-                        response.not_found('Project Not Found', res)
+                await connection.query(`SELECT username, role_id from "user" where token='${token}'`, async function (error, result, fields){
+                    if(error){
+                        console.log(error)
                     } else{
-                        response.success_delete('Project Has Been Deleted', res)
+                        var role_id_checking = result.rows[0].role_id
+                        await connection.query(`SELECT lower(a.role_name) from role a LEFT JOIN "user" b on a.role_id=b.role_id where a.role_id='${role_id_checking}'`, async function (error, result, fields){
+                            if(error){
+                                console.log(error)
+                            } else {
+                                var role_name_checking = result.rows[0].lower
+                                if(role_name_checking !== 'super_admin' & role_name_checking !== 'yti') {
+                                    response.unauthor('You are not allowed to delete project', res)
+                                } else {
+                                    connection.query(`DELETE FROM project WHERE project_id='${proj_id}'`, function (error, result, fields){
+                                        if(result.rowCount == 0){
+                                            response.not_found('Project Not Found', res)
+                                        } else{
+                                            response.success_delete('Project Has Been Deleted', res)
+                                        }
+                                    });
+                                }
+                            }
+                        })
                     }
-                });
+                })
             }
         });
     }
@@ -439,78 +495,95 @@ exports.getMember = async function(req, res) {
             } else if (date_now > result.rows[0].token_expired) {
                 response.unauthor('Your Token Is Expired', res)
             } else {
-                await connection.query(`select project_id from project where project_id='${proj_id}'`, async function (error, result, fields){
-                    if(result.rowCount == 0){
-                        response.not_found('Project Not Found', res)
-                    } else {
-                        if(req.query.name || req.query.mail || req.query.phone || req.query.cnum || req.query.gender) {
-                            await connection.query(
-                                `SELECT * FROM "user" WHERE (LOWER(firstname) LIKE LOWER('%${req.query.name}%') or LOWER(lastname) LIKE LOWER('%${req.query.name}%') or LOWER(username) LIKE LOWER('%${req.query.name}%') or LOWER(email) LIKE LOWER('%${req.query.mail}%') or LOWER(telephone) LIKE LOWER('%${req.query.phone}%') or LOWER(card_number) LIKE LOWER('%${req.query.cnum}%') or LOWER(gender) LIKE LOWER('%${req.query.gender}%')) and project_id='${proj_id}' order by firstname offset ${offset} limit ${limit}`,
-                                function (error, result, fields){
-                                
-                                if(error){
-                                    console.log(error)
-                                } else{
-                                    var dataMember = []
-                                    for (var i = 0; i < result.rows.length; i++) {
-                                        var row = result.rows[i];
-                                        var data_getMember = {
-                                            "id": row.user_id,
-                                            "firstName": row.firstname,
-                                            "lastName": row.lastname,
-                                            "userName": row.username,
-                                            "mail": row.email,
-                                            "phone": row.telephone,
-                                            "cardMember": row.card_member,
-                                            "cardNumber": row.card_number,
-                                            "gender": row.gender,
-                                            "birthDate": row.birth_date,
-                                            "isActive": row.is_active,
-                                            "isLogin": row.is_login,
-                                            "createDate": row.create_date,
-                                            "updateDate": row.update_date,
-                                            "roleId": row.role_id
+                await connection.query(`SELECT role_id from "user" where token='${token}'`, async function (error, result, fields){
+                    if(error){
+                        console.log(error)
+                    } else{
+                        var role_id_checking = result.rows[0].role_id
+                        await connection.query(`SELECT lower(a.role_name) from role a LEFT JOIN "user" b on a.role_id=b.role_id where a.role_id='${role_id_checking}'`, async function (error, result, fields){
+                            if(error){
+                                console.log(error)
+                            } else {
+                                var role_name_checking = result.rows[0].lower
+                                if(role_name_checking !== 'super_admin' & role_name_checking !== 'yti') {
+                                    response.unauthor('You are not allowed to get member', res)
+                                } else {
+                                    await connection.query(`select project_id from project where project_id='${proj_id}'`, async function (error, result, fields){
+                                        if(result.rowCount == 0){
+                                            response.not_found('Project Not Found', res)
+                                        } else {
+                                            if(req.query.name || req.query.mail || req.query.phone || req.query.cnum || req.query.gender) {
+                                                await connection.query(
+                                                    `SELECT * FROM "user" WHERE (LOWER(firstname) LIKE LOWER('%${req.query.name}%') and LOWER(lastname) LIKE LOWER('%${req.query.name}%') and LOWER(username) LIKE LOWER('%${req.query.name}%') and LOWER(email) LIKE LOWER('%${req.query.mail}%') and LOWER(telephone) LIKE LOWER('%${req.query.phone}%') and LOWER(card_number) LIKE LOWER('%${req.query.cnum}%') and LOWER(gender) LIKE LOWER('%${req.query.gender}%')) and project_id='${proj_id}' order by firstname offset ${offset} limit ${limit}`,
+                                                    function (error, result, fields){
+                                                    if(error){
+                                                        console.log(error)
+                                                    } else{
+                                                        var dataMember = []
+                                                        for (var i = 0; i < result.rows.length; i++) {
+                                                            var row = result.rows[i];
+                                                            var data_getMember = {
+                                                                "id": row.user_id,
+                                                                "firstName": row.firstname,
+                                                                "lastName": row.lastname,
+                                                                "userName": row.username,
+                                                                "mail": row.email,
+                                                                "phone": row.telephone,
+                                                                "cardMember": row.card_member,
+                                                                "cardNumber": row.card_number,
+                                                                "gender": row.gender,
+                                                                "birthDate": row.birth_date,
+                                                                "isActive": row.is_active,
+                                                                "isLogin": row.is_login,
+                                                                "createDate": row.create_date,
+                                                                "updateDate": row.update_date,
+                                                                "roleId": row.role_id
+                                                            }
+                                                            dataMember.push(data_getMember)
+                                                        }
+                                                        limit = 'All' ? i : req.query.limit;
+                                                        response.success_get(dataMember, offset, limit, i, res)
+                                                    }
+                                                    });
+                                            } else {
+                                                await connection.query(
+                                                    `SELECT a.user_id, a.firstname, a.lastname, a.username, a.email, a.telephone, a.card_member, a.card_number, a.gender, a.birth_date, a.is_active, a.is_login, a.create_date, a.update_date, a.role_id FROM "user" a left join project b on a.project_id=b.project_id where a.project_id='${proj_id}' offset ${offset} limit ${limit};`,
+                                                    function (error, result, fields){
+                                                    if(error){
+                                                        console.log(error)
+                                                    } else{
+                                                        var dataMember = []
+                                                        for (var i = 0; i < result.rows.length; i++) {
+                                                            var row = result.rows[i];
+                                                            var data_getMember = {
+                                                                "id": row.user_id,
+                                                                "firstName": row.firstname,
+                                                                "lastName": row.lastname,
+                                                                "userName": row.username,
+                                                                "mail": row.email,
+                                                                "phone": row.telephone,
+                                                                "cardMember": row.card_member,
+                                                                "cardNumber": row.card_number,
+                                                                "gender": row.gender,
+                                                                "birthDate": row.birth_date,
+                                                                "isActive": row.is_active,
+                                                                "isLogin": row.is_login,
+                                                                "createDate": row.create_date,
+                                                                "updateDate": row.update_date,
+                                                                "roleId": row.role_id
+                                                            }
+                                                            dataMember.push(data_getMember)
+                                                        }
+                                                        limit = 'All' ? i : req.query.limit;
+                                                        response.success_get(dataMember, offset, limit, i, res)
+                                                    }
+                                                });
+                                            }
                                         }
-                                        dataMember.push(data_getMember)
-                                    }
-            
-                                    response.success_get(dataMember, offset, limit, i, res)
+                                    })
                                 }
-                                });
-                        } else {
-                            await connection.query(
-                                `SELECT a.user_id, a.firstname, a.lastname, a.username, a.email, a.telephone, a.card_member, a.card_number, a.gender, a.birth_date, a.is_active, a.is_login, a.create_date, a.update_date, a.role_id FROM "user" a left join project b on a.project_id=b.project_id where a.project_id='${proj_id}' offset ${offset} limit ${limit};`,
-                                function (error, result, fields){
-                                if(error){
-                                    console.log(error)
-                                } else{
-                                    var dataMember = []
-                                    for (var i = 0; i < result.rows.length; i++) {
-                                        var row = result.rows[i];
-                                        var data_getMember = {
-                                            "id": row.user_id,
-                                            "firstName": row.firstname,
-                                            "lastName": row.lastname,
-                                            "userName": row.username,
-                                            "mail": row.email,
-                                            "phone": row.telephone,
-                                            "cardMember": row.card_member,
-                                            "cardNumber": row.card_number,
-                                            "gender": row.gender,
-                                            "birthDate": row.birth_date,
-                                            "isActive": row.is_active,
-                                            "isLogin": row.is_login,
-                                            "createDate": row.create_date,
-                                            "updateDate": row.update_date,
-                                            "roleId": row.role_id
-                                        }
-                                        dataMember.push(data_getMember)
-                                    }
-            
-                                    response.success_get(dataMember, offset, limit, i, res)
-                                }
-                            });
-                        }
+                            }
+                        })
                     }
                 })
             }
@@ -533,7 +606,9 @@ exports.postMember = async function(req, res) {
 
     var date_now = date.getUTCFullYear() + "-" + month + "-" + day + " " + hours + ":" + minutes + ":" + seconds;
     console.log(date_now)
-    
+    var apikey = crypto.createHash('sha1').update('APIKEY' + date_now).digest('hex')
+    var apisecret = crypto.createHash('sha1').update('APISECRET' + date_now).digest('hex')
+
     // REQ DARI CLIENT
     var proj_id = req.params.id
     var firstname = req.body.firstName
@@ -578,68 +653,86 @@ exports.postMember = async function(req, res) {
             } else if (date_now > result.rows[0].token_expired) {
                 response.unauthor('Your Token Is Expired', res)
             } else {
-                await connection.query(`SELECT project_id from project where project_id='${proj_id}';`, async function (error, result, fields){
-                    if(result.rowCount == 0){
-                        response.not_found("Project Not Found", res)
-                    } else {
-                        await connection.query(`SELECT user_id from "user" where email='${mail}';`, async function (error, result, fields){
-                            if(result.rowCount !== 0){
-                                response.conflict('Email have been used', res)
+                await connection.query(`SELECT role_id from "user" where token='${token}'`, async function (error, result, fields){
+                    if(error){
+                        console.log(error)
+                    } else{
+                        var role_id_checking = result.rows[0].role_id
+                        await connection.query(`SELECT lower(a.role_name) from role a LEFT JOIN "user" b on a.role_id=b.role_id where a.role_id='${role_id_checking}'`, async function (error, result, fields){
+                            if(error){
+                                console.log(error)
                             } else {
-                                await connection.query(`SELECT user_id from "user" where username='${username}';`, async function (error, result, fields){
-                                    if(result.rowCount !== 0){
-                                        response.conflict('Username have been used', res)
-                                    } else {
-                                        await connection.query(`SELECT user_id from "user" where telephone='${phone}';`, async function (error, result, fields){
-                                            if(result.rowCount !== 0){
-                                                response.conflict('No. Telephone have been used', res)
-                                            } else {
-                                                Joi.validate(req.body, schema, async function (err, value) { 
-                                                    if (err) {
-                                                        response.bad_req(err.details[0].message, res)
-                                                    } else {
-                                                        await connection.query(`INSERT INTO "user" (user_id, firstname, lastname, username, password, email, telephone, card_member, card_number, gender, birth_date, role_id, create_date, update_date, project_id) VALUES ('${user_id}', '${firstname}', '${lastname}', '${username}', '${password}', '${mail}', '${phone}', '${card_member}', '${card_number}', '${gender}', '${birthdate}', '${role_id}', '${date_now}', '${date_now}', '${proj_id}');`, function (error, result, fields){
-                                                            if(error){
-                                                                console.log(error)
-                                                            } else {
-                                                                connection.query(`SELECT a.user_id, a.firstname, a.lastname, a.username, a.email, a.telephone, a.card_member, a.card_number, a.birth_date, a.is_active, a.is_login, a.create_date, a.update_date, a.role_id FROM "user" a left join project b on a.project_id=b.project_id where a.project_id='${proj_id}' and a.user_id='${user_id}';`, function (error, result, fields){
-                                                                    if(error){
-                                                                        console.log(error)
-                                                                    } else{
-                                                                        var dataMember = []
-                                                                        for (var i = 0; i < result.rows.length; i++) {
-                                                                            var row = result.rows[i];
-                                                                            var data_getMember = {
-                                                                                "id": row.user_id,
-                                                                                "firstName": row.firstname,
-                                                                                "lastName": row.lastname,
-                                                                                "userName": row.username,
-                                                                                "mail": row.email,
-                                                                                "phone": row.telephone,
-                                                                                "cardMember": row.card_member,
-                                                                                "cardNumber": row.card_number,
-                                                                                "gender": row.gender,
-                                                                                "birthDate": row.birth_date,
-                                                                                "isActive": row.is_active,
-                                                                                "isLogin": row.is_login,
-                                                                                "createDate": row.create_date,
-                                                                                "updateDate": row.update_date,
-                                                                                "roleId": row.role_id
-                                                                            }
-                                                                            dataMember.push(data_getMember)
+                                var role_name_checking = result.rows[0].lower
+                                if(role_name_checking !== 'super_admin' & role_name_checking !== 'yti') {
+                                    response.unauthor('You are not allowed to create member', res)
+                                } else {
+                                    await connection.query(`SELECT project_id from project where project_id='${proj_id}';`, async function (error, result, fields){
+                                        if(result.rowCount == 0){
+                                            response.not_found("Project Not Found", res)
+                                        } else {
+                                            await connection.query(`SELECT user_id from "user" where email='${mail}';`, async function (error, result, fields){
+                                                if(result.rowCount !== 0){
+                                                    response.conflict('Email have been used', res)
+                                                } else {
+                                                    await connection.query(`SELECT user_id from "user" where username='${username}';`, async function (error, result, fields){
+                                                        if(result.rowCount !== 0){
+                                                            response.conflict('Username have been used', res)
+                                                        } else {
+                                                            await connection.query(`SELECT user_id from "user" where telephone='${phone}';`, async function (error, result, fields){
+                                                                if(result.rowCount !== 0){
+                                                                    response.conflict('No. Telephone have been used', res)
+                                                                } else {
+                                                                    Joi.validate(req.body, schema, async function (err, value) { 
+                                                                        if (err) {
+                                                                            response.bad_req(err.details[0].message, res)
+                                                                        } else {
+                                                                            await connection.query(`INSERT INTO "user" (user_id, firstname, lastname, username, password, email, telephone, card_member, card_number, gender, birth_date, role_id, create_date, project_id, apikey, apisecret) VALUES ('${user_id}', '${firstname}', '${lastname}', '${username}', '${password}', '${mail}', '${phone}', '${card_member}', '${card_number}', '${gender}', '${birthdate}', '${role_id}', '${date_now}', '${proj_id}', '${apikey}', '${apisecret}');`, function (error, result, fields){
+                                                                                if(error){
+                                                                                    console.log(error)
+                                                                                } else {
+                                                                                    connection.query(`SELECT a.user_id, a.firstname, a.lastname, a.username, a.email, a.telephone, a.card_member, a.card_number, a.birth_date, a.is_active, a.is_login, a.create_date, a.update_date, a.role_id FROM "user" a left join project b on a.project_id=b.project_id where a.project_id='${proj_id}' and a.user_id='${user_id}';`, function (error, result, fields){
+                                                                                        if(error){
+                                                                                            console.log(error)
+                                                                                        } else{
+                                                                                            var dataMember = []
+                                                                                            for (var i = 0; i < result.rows.length; i++) {
+                                                                                                var row = result.rows[i];
+                                                                                                var data_getMember = {
+                                                                                                    "id": row.user_id,
+                                                                                                    "firstName": row.firstname,
+                                                                                                    "lastName": row.lastname,
+                                                                                                    "userName": row.username,
+                                                                                                    "mail": row.email,
+                                                                                                    "phone": row.telephone,
+                                                                                                    "cardMember": row.card_member,
+                                                                                                    "cardNumber": row.card_number,
+                                                                                                    "gender": row.gender,
+                                                                                                    "birthDate": row.birth_date,
+                                                                                                    "isActive": row.is_active,
+                                                                                                    "isLogin": row.is_login,
+                                                                                                    "createDate": row.create_date,
+                                                                                                    "updateDate": row.update_date,
+                                                                                                    "roleId": row.role_id
+                                                                                                }
+                                                                                                dataMember.push(data_getMember)
+                                                                                            }
+                                                                    
+                                                                                            response.success_post_put("Member have been create", dataMember, res)
+                                                                                        }
+                                                                                    });
+                                                                                }
+                                                                            });
                                                                         }
-                                                
-                                                                        response.success_post_put("Member have been create", dataMember, res)
-                                                                    }
-                                                                });
-                                                            }
-                                                        });
-                                                    }
-                                                }); 
-                                            }
-                                        })
-                                    }
-                                })
+                                                                    }); 
+                                                                }
+                                                            })
+                                                        }
+                                                    })
+                                                }
+                                            })
+                                        }
+                                    })
+                                }
                             }
                         })
                     }
@@ -681,43 +774,62 @@ exports.getMemberID = async function(req, res) {
             } else if (date_now > result.rows[0].token_expired) {
                 response.unauthor('Your Token Is Expired', res)
             } else {
-                await connection.query(`select project_id from project where project_id='${proj_id}'`, async function (error, result, fields){
-                    if(result.rowCount == 0){
-                        response.not_found('Project Not Found', res)
-                    } else {
-                        await connection.query(
-                            `SELECT a.user_id, a.firstname, a.lastname, a.username, a.email, a.telephone, a.card_member, a.card_number, a.gender, a.birth_date, a.is_active, a.is_login, a.create_date, a.update_date, a.role_id FROM "user" a left join project b on a.project_id=b.project_id where a.project_id='${proj_id}' and a.user_id='${user_id}';`,
-                            function (error, result, fields){
+                await connection.query(`SELECT role_id, user_id from "user" where token='${token}'`, async function (error, result, fields){
+                    if(error){
+                        console.log(error)
+                    } else{
+                        var role_id_checking = result.rows[0].role_id
+                        var user_id_checking = result.rows[0].user_id
+                        await connection.query(`SELECT lower(a.role_name) from role a LEFT JOIN "user" b on a.role_id=b.role_id where a.role_id='${role_id_checking}'`, async function (error, result, fields){
                             if(error){
                                 console.log(error)
-                            } else if(result.rowCount == 0){
-                                response.not_found('Member Not Found', res)
-                            } else{
-                                var dataMemberID = []
-                                for (var i = 0; i < result.rows.length; i++) {
-                                    var row = result.rows[i];
-                                    var data_getMemberID = {
-                                        "id": row.user_id,
-                                        "firstName": row.firstname,
-                                        "lastName": row.lastname,
-                                        "userName": row.username,
-                                        "mail": row.email,
-                                        "phone": row.telephone,
-                                        "cardMember": row.card_member,
-                                        "cardNumber": row.card_number,
-                                        "gender": row.gender,
-                                        "birthDate": row.birth_date,
-                                        "isActive": row.is_active,
-                                        "isLogin": row.is_login,
-                                        "createDate": row.create_date,
-                                        "updateDate": row.update_date,
-                                        "roleId": row.role_id
-                                    }
-                                    dataMemberID.push(data_getMemberID)
+                            } else {
+                                var role_name_checking = result.rows[0].lower
+                                if((role_name_checking == 'member' || role_name_checking == 'popti') & user_id_checking !== user_id) {
+                                    response.unauthor('You are just allowed to get your account', res)
+                                } else {
+                                    await connection.query(`select project_id from project where project_id='${proj_id}'`, async function (error, result, fields){
+                                        if(result.rowCount == 0){
+                                            response.not_found('Project Not Found', res)
+                                        } else {
+                                            await connection.query(
+                                                `SELECT a.user_id, a.firstname, a.lastname, a.username, a.email, a.telephone, a.card_member, a.card_number, a.gender, a.birth_date, a.is_active, a.is_login, a.create_date, a.update_date, a.role_id FROM "user" a left join project b on a.project_id=b.project_id where a.project_id='${proj_id}' and a.user_id='${user_id}';`,
+                                                function (error, result, fields){
+                                                if(error){
+                                                    console.log(error)
+                                                } else if(result.rowCount == 0){
+                                                    response.not_found('Member Not Found', res)
+                                                } else{
+                                                    var dataMemberID = []
+                                                    for (var i = 0; i < result.rows.length; i++) {
+                                                        var row = result.rows[i];
+                                                        var data_getMemberID = {
+                                                            "id": row.user_id,
+                                                            "firstName": row.firstname,
+                                                            "lastName": row.lastname,
+                                                            "userName": row.username,
+                                                            "mail": row.email,
+                                                            "phone": row.telephone,
+                                                            "cardMember": row.card_member,
+                                                            "cardNumber": row.card_number,
+                                                            "gender": row.gender,
+                                                            "birthDate": row.birth_date,
+                                                            "isActive": row.is_active,
+                                                            "isLogin": row.is_login,
+                                                            "createDate": row.create_date,
+                                                            "updateDate": row.update_date,
+                                                            "roleId": row.role_id
+                                                        }
+                                                        dataMemberID.push(data_getMemberID)
+                                                    }
+                                                    response.success_getID(dataMemberID, res)
+                                                }
+                                            });      
+                                        }
+                                    })
                                 }
-                                response.success_getID(dataMemberID, res)
                             }
-                        });      
+                        })
                     }
                 })
             }
@@ -783,120 +895,139 @@ exports.putMemberID = async function(req, res) {
             } else if (date_now > result.rows[0].token_expired) {
                 response.unauthor('Your Token Is Expired', res)
             } else {
-                await connection.query(`select project_id from project where project_id='${proj_id}'`, async function (error, result, fields){
-                    if(result.rowCount == 0){
-                        response.not_found('Project Not Found', res)
-                    } else {
-                        await connection.query(`SELECT a.user_id FROM "user" a left join project b on a.project_id=b.project_id where a.project_id='${proj_id}' and a.user_id='${user_id}';`, async function (error, result, fields){
-                            if(result.rowCount == 0){
-                                response.not_found('Member in the Project Not Found', res)
+                await connection.query(`SELECT role_id, user_id from "user" where token='${token}'`, async function (error, result, fields){
+                    if(error){
+                        console.log(error)
+                    } else{
+                        var role_id_checking = result.rows[0].role_id
+                        var user_id_checking = result.rows[0].user_id
+                        await connection.query(`SELECT lower(a.role_name) from role a LEFT JOIN "user" b on a.role_id=b.role_id where a.role_id='${role_id_checking}'`, async function (error, result, fields){
+                            if(error){
+                                console.log(error)
                             } else {
-                                await connection.query(`SELECT user_id from "user" where email='${email}';`, async function (error, result, fields){
-                                    if(result.rowCount !== 0){
-                                        response.conflict('Email have been used', res)
-                                    } else {
-                                        await connection.query(`SELECT user_id from "user" where username='${username}';`, async function (error, result, fields){
-                                            if(result.rowCount !== 0){
-                                                response.conflict('Username have been used', res)
-                                            } else {
-                                                await connection.query(`SELECT user_id from "user" where telephone='${phone}';`, async function (error, result, fields){
-                                                    if(result.rowCount !== 0){
-                                                        response.conflict('No. Telephone have been used', res)
-                                                    } else {
-                                                        Joi.validate(req.body, schema, async function (err, value) { 
-                                                            if (err) {
-                                                                response.bad_req(err.details[0].message, res)
-                                                            } else {
-                                                                let query = `UPDATE "user" SET `
-                                                                let flag = false 
-                                                                if(firstname){
-                                                                    query = query + `firstname = '${firstname}'`
-                                                                    flag = true
-                                                                }
-                                                                if(lastname){
-                                                                    flag == true ? query = query + `, lastname = '${lastname}'` : query = query + `lastname = '${lastname}'`
-                                                                    flag = true
-                                                                }
-                                                                if(username){
-                                                                    flag == true ? query = query + `, username = '${username}'` : query = query + `username = '${username}'`
-                                                                    flag = true
-                                                                }
-                                                                if(password){
-                                                                    flag == true ? query = query + `, password = '${password}'` : query = query + `password = '${password}'`
-                                                                    flag = true
-                                                                }
-                                                                if(email){
-                                                                    flag == true ? query = query + `, email = '${email}'` : query = query + `email = '${email}'`
-                                                                    flag = true
-                                                                }
-                                                                if(phone){
-                                                                    flag == true ? query = query + `, telephone = '${phone}'` : query = query + `telephone = '${phone}'`
-                                                                    flag = true
-                                                                }
-                                                                if(card_member){
-                                                                    flag == true ? query = query + `, card_member = '${card_member}'` : query = query + `card_member = '${card_member}'`
-                                                                    flag = true
-                                                                }
-                                                                if(card_number){
-                                                                    flag == true ? query = query + `, card_number = '${card_number}'` : query = query + `card_number = '${card_number}'`
-                                                                    flag = true
-                                                                }
-                                                                if(gender){
-                                                                    flag == true ? query = query + `, gender = '${gender}'` : query = query + `gender = '${gender}'`
-                                                                    flag = true
-                                                                }
-                                                                if(birth_date){
-                                                                    flag == true ? query = query + `, birth_date = '${birth_date}'` : query = query + `birth_date = '${birth_date}'`
-                                                                    flag = true
-                                                                }
-                                                                if(role_id){
-                                                                    flag == true ? query = query + `, role_id = '${role_id}'` : query = query + `role_id = '${role_id}'`
-                                                                    flag = true
-                                                                }
-                                                                query = query + `, update_date = '${date_now}' where project_id='${proj_id}' and user_id='${user_id}';`
-                                            
-                                                                console.log(query)
-                                                                await connection.query(query, async function (error, result, fields){
-                                                                    if(!error){
-                                                                        await connection.query(`SELECT a.user_id, a.firstname, a.lastname, a.username, a.email, a.telephone, a.card_member, a.card_number, a.birth_date, a.is_active, a.is_login, a.create_date, a.update_date, a.role_id FROM "user" a left join project b on a.project_id=b.project_id where a.project_id='${proj_id}' and a.user_id='${user_id}';`, function (error, result, fields){
-                                                                            if(error){
-                                                                                console.log(error)
-                                                                            } else {
-                                                                                var dataMember = []
-                                                                                for (var i = 0; i < result.rows.length; i++) {
-                                                                                    var row = result.rows[i];
-                                                                                    var data_getMember = {
-                                                                                        "id": row.user_id,
-                                                                                        "firstName": row.firstname,
-                                                                                        "lastName": row.lastname,
-                                                                                        "userName": row.username,
-                                                                                        "mail": row.email,
-                                                                                        "phone": row.telephone,
-                                                                                        "cardMember": row.card_member,
-                                                                                        "cardNumber": row.card_number,
-                                                                                        "gender": row.gender,
-                                                                                        "birthDate": row.birth_date,
-                                                                                        "isActive": row.is_active,
-                                                                                        "isLogin": row.is_login,
-                                                                                        "createDate": row.create_date,
-                                                                                        "updateDate": row.update_date,
-                                                                                        "roleId": row.role_id
+                                var role_name_checking = result.rows[0].lower
+                                if((role_name_checking == 'member' || role_name_checking == 'popti') & user_id_checking !== user_id) {
+                                    response.unauthor('You are just allowed to update your account', res)
+                                } else {
+                                    await connection.query(`select project_id from project where project_id='${proj_id}'`, async function (error, result, fields){
+                                        if(result.rowCount == 0){
+                                            response.not_found('Project Not Found', res)
+                                        } else {
+                                            await connection.query(`SELECT a.user_id FROM "user" a left join project b on a.project_id=b.project_id where a.project_id='${proj_id}' and a.user_id='${user_id}';`, async function (error, result, fields){
+                                                if(result.rowCount == 0){
+                                                    response.not_found('Member in the Project Not Found', res)
+                                                } else {
+                                                    await connection.query(`SELECT user_id from "user" where email='${email}';`, async function (error, result, fields){
+                                                        if(result.rowCount !== 0){
+                                                            response.conflict('Email have been used', res)
+                                                        } else {
+                                                            await connection.query(`SELECT user_id from "user" where username='${username}';`, async function (error, result, fields){
+                                                                if(result.rowCount !== 0){
+                                                                    response.conflict('Username have been used', res)
+                                                                } else {
+                                                                    await connection.query(`SELECT user_id from "user" where telephone='${phone}';`, async function (error, result, fields){
+                                                                        if(result.rowCount !== 0){
+                                                                            response.conflict('No. Telephone have been used', res)
+                                                                        } else {
+                                                                            Joi.validate(req.body, schema, async function (err, value) { 
+                                                                                if (err) {
+                                                                                    response.bad_req(err.details[0].message, res)
+                                                                                } else {
+                                                                                    let query = `UPDATE "user" SET `
+                                                                                    let flag = false 
+                                                                                    if(firstname){
+                                                                                        query = query + `firstname = '${firstname}'`
+                                                                                        flag = true
                                                                                     }
-                                                                                    dataMember.push(data_getMember)
+                                                                                    if(lastname){
+                                                                                        flag == true ? query = query + `, lastname = '${lastname}'` : query = query + `lastname = '${lastname}'`
+                                                                                        flag = true
+                                                                                    }
+                                                                                    if(username){
+                                                                                        flag == true ? query = query + `, username = '${username}'` : query = query + `username = '${username}'`
+                                                                                        flag = true
+                                                                                    }
+                                                                                    if(password){
+                                                                                        flag == true ? query = query + `, password = '${password}'` : query = query + `password = '${password}'`
+                                                                                        flag = true
+                                                                                    }
+                                                                                    if(email){
+                                                                                        flag == true ? query = query + `, email = '${email}'` : query = query + `email = '${email}'`
+                                                                                        flag = true
+                                                                                    }
+                                                                                    if(phone){
+                                                                                        flag == true ? query = query + `, telephone = '${phone}'` : query = query + `telephone = '${phone}'`
+                                                                                        flag = true
+                                                                                    }
+                                                                                    if(card_member){
+                                                                                        flag == true ? query = query + `, card_member = '${card_member}'` : query = query + `card_member = '${card_member}'`
+                                                                                        flag = true
+                                                                                    }
+                                                                                    if(card_number){
+                                                                                        flag == true ? query = query + `, card_number = '${card_number}'` : query = query + `card_number = '${card_number}'`
+                                                                                        flag = true
+                                                                                    }
+                                                                                    if(gender){
+                                                                                        flag == true ? query = query + `, gender = '${gender}'` : query = query + `gender = '${gender}'`
+                                                                                        flag = true
+                                                                                    }
+                                                                                    if(birth_date){
+                                                                                        flag == true ? query = query + `, birth_date = '${birth_date}'` : query = query + `birth_date = '${birth_date}'`
+                                                                                        flag = true
+                                                                                    }
+                                                                                    if(role_id){
+                                                                                        flag == true ? query = query + `, role_id = '${role_id}'` : query = query + `role_id = '${role_id}'`
+                                                                                        flag = true
+                                                                                    }
+                                                                                    query = query + `, update_date = '${date_now}' where project_id='${proj_id}' and user_id='${user_id}';`
+                                                                
+                                                                                    console.log(query)
+                                                                                    await connection.query(query, async function (error, result, fields){
+                                                                                        if(!error){
+                                                                                            await connection.query(`SELECT a.user_id, a.firstname, a.lastname, a.username, a.email, a.telephone, a.card_member, a.card_number, a.birth_date, a.is_active, a.is_login, a.create_date, a.update_date, a.role_id FROM "user" a left join project b on a.project_id=b.project_id where a.project_id='${proj_id}' and a.user_id='${user_id}';`, function (error, result, fields){
+                                                                                                if(error){
+                                                                                                    console.log(error)
+                                                                                                } else {
+                                                                                                    var dataMember = []
+                                                                                                    for (var i = 0; i < result.rows.length; i++) {
+                                                                                                        var row = result.rows[i];
+                                                                                                        var data_getMember = {
+                                                                                                            "id": row.user_id,
+                                                                                                            "firstName": row.firstname,
+                                                                                                            "lastName": row.lastname,
+                                                                                                            "userName": row.username,
+                                                                                                            "mail": row.email,
+                                                                                                            "phone": row.telephone,
+                                                                                                            "cardMember": row.card_member,
+                                                                                                            "cardNumber": row.card_number,
+                                                                                                            "gender": row.gender,
+                                                                                                            "birthDate": row.birth_date,
+                                                                                                            "isActive": row.is_active,
+                                                                                                            "isLogin": row.is_login,
+                                                                                                            "createDate": row.create_date,
+                                                                                                            "updateDate": row.update_date,
+                                                                                                            "roleId": row.role_id
+                                                                                                        }
+                                                                                                        dataMember.push(data_getMember)
+                                                                                                    }
+                                                                                                    response.success_post_put("Member have been update", dataMember, res)
+                                                                                                }
+                                                                                            });
+                                                                                        }
+                                                                                    })
                                                                                 }
-                                                                                response.success_post_put("Member have been update", dataMember, res)
-                                                                            }
-                                                                        });
-                                                                    }
-                                                                })
-                                                            }
-                                                        })
-                                                    }
-                                                })
-                                            }
-                                        })
-                                    }
-                                })
+                                                                            })
+                                                                        }
+                                                                    })
+                                                                }
+                                                            })
+                                                        }
+                                                    })
+                                                }
+                                            })
+                                        }
+                                    })
+                                }
                             }
                         })
                     }
@@ -938,25 +1069,43 @@ exports.deleteMemberID = async function(req, res) {
             } else if (date_now > result.rows[0].token_expired) {
                 response.unauthor('Your Token Is Expired', res)
             } else {
-                await connection.query(`select project_id from project where project_id='${proj_id}'`, async function (error, result, fields){
-                    if(result.rowCount == 0){
-                        response.not_found('Project Not Found', res)
-                    } else {
-                        await connection.query(`SELECT a.user_id FROM "user" a left join project b on a.project_id=b.project_id where a.project_id='${proj_id}' and a.user_id='${user_id}';`, async function (error, result, fields){
-                            if(result.rowCount == 0){
-                                response.not_found('Member in the Project Not Found', res)
+                await connection.query(`SELECT role_id from "user" where token='${token}'`, async function (error, result, fields){
+                    if(error){
+                        console.log(error)
+                    } else{
+                        var role_id_checking = result.rows[0].role_id
+                        await connection.query(`SELECT lower(a.role_name) from role a LEFT JOIN "user" b on a.role_id=b.role_id where a.role_id='${role_id_checking}'`, async function (error, result, fields){
+                            if(error){
+                                console.log(error)
                             } else {
-                                await connection.query(`DELETE FROM "user" WHERE project_id='${proj_id}' and user_id='${user_id}'`, function (error, result, fields){
-                                    if(error){
-                                        console.log(error)
-                                    } else{
-                                        response.success_delete('Member Has Been Deleted', res)
-                                    }
-                                });
+                                var role_name_checking = result.rows[0].lower
+                                if(role_name_checking !== 'super_admin' & role_name_checking !== 'yti') {
+                                    response.unauthor('You are not allowed to delete member', res)
+                                } else {
+                                    await connection.query(`select project_id from project where project_id='${proj_id}'`, async function (error, result, fields){
+                                        if(result.rowCount == 0){
+                                            response.not_found('Project Not Found', res)
+                                        } else {
+                                            await connection.query(`SELECT a.user_id FROM "user" a left join project b on a.project_id=b.project_id where a.project_id='${proj_id}' and a.user_id='${user_id}';`, async function (error, result, fields){
+                                                if(result.rowCount == 0){
+                                                    response.not_found('Member in the Project Not Found', res)
+                                                } else {
+                                                    await connection.query(`DELETE FROM "user" WHERE project_id='${proj_id}' and user_id='${user_id}'`, function (error, result, fields){
+                                                        if(error){
+                                                            console.log(error)
+                                                        } else{
+                                                            response.success_delete('Member Has Been Deleted', res)
+                                                        }
+                                                    });
+                                                }
+                                            })
+                                        }
+                                    });
+                                }
                             }
                         })
                     }
-                });
+                })
             }
         });
     }
@@ -997,54 +1146,75 @@ exports.getMemberDoc = async function(req, res) {
             } else if (date_now > result.rows[0].token_expired) {
                 response.unauthor('Your Token Is Expired', res)
             } else {
-                await connection.query(`select project_id from project where project_id='${proj_id}'`, async function (error, result, fields){
-                    if(result.rowCount == 0){
-                        response.not_found('Project Not Found', res)
-                    } else {
-                        await connection.query(`SELECT a.user_id FROM "user" a left join project b on a.project_id=b.project_id where a.project_id='${proj_id}' and a.user_id='${user_id}';`, async function (error, result, fields){
-                            if(result.rowCount == 0){
-                                response.not_found('Member in the Project Not Found', res)
+                await connection.query(`SELECT role_id, user_id from "user" where token='${token}'`, async function (error, result, fields){
+                    if(error){
+                        console.log(error)
+                    } else{
+                        var role_id_checking = result.rows[0].role_id
+                        var user_id_checking = result.rows[0].user_id
+                        await connection.query(`SELECT lower(a.role_name) from role a LEFT JOIN "user" b on a.role_id=b.role_id where a.role_id='${role_id_checking}'`, async function (error, result, fields){
+                            if(error){
+                                console.log(error)
                             } else {
-                                if(req.query.name || req.query.type ) {
-                                    await connection.query(`SELECT a.document_id, a.name, a.path, a.type, a.upload_date FROM document a LEFT JOIN "user" b on a.user_id=b.user_id WHERE a.user_id='${user_id}' and (LOWER(a.name) LIKE LOWER('%${req.query.name}%') or LOWER(a.type) LIKE LOWER('%${req.query.type}%')) offset ${offset} limit ${limit};`, function (error, result, fields){
-                                        if(error){
-                                            console.log(error)
-                                        } else {
-                                            var dataDocument = []
-                                            for (var i = 0; i < result.rows.length; i++) {
-                                                var row = result.rows[i];
-                                                var data_getDocument = {
-                                                    "id": row.document_id,
-                                                    "name": row.name,
-                                                    "path": row.path,
-                                                    "type": row.type,
-                                                    "createDate": row.upload_date
-                                                }
-                                                dataDocument.push(data_getDocument)
-                                            }
-                                            console.log(i)
-                                            response.success_get(dataDocument, offset, limit, i, res)
-                                        }
-                                    })
+                                var role_name_checking = result.rows[0].lower
+                                if((role_name_checking == 'member' || role_name_checking == 'popti') & user_id_checking !== user_id) {
+                                    response.unauthor('You are just allowed to get your document', res)
                                 } else {
-                                    await connection.query(`SELECT a.document_id, a.name, a.path, a.type, a.upload_date FROM document a LEFT JOIN "user" b on a.user_id=b.user_id WHERE a.user_id='${user_id}' offset ${offset} limit ${limit};`, function (error, result, fields){
-                                        if(error){
-                                            console.log(error)
+                                    await connection.query(`select project_id from project where project_id='${proj_id}'`, async function (error, result, fields){
+                                        if(result.rowCount == 0){
+                                            response.not_found('Project Not Found', res)
                                         } else {
-                                            var dataDocument = []
-                                            for (var i = 0; i < result.rows.length; i++) {
-                                                var row = result.rows[i];
-                                                var data_getDocument = {
-                                                    "id": row.document_id,
-                                                    "name": row.name,
-                                                    "path": row.path,
-                                                    "type": row.type,
-                                                    "createDate": row.upload_date
+                                            await connection.query(`SELECT a.user_id FROM "user" a left join project b on a.project_id=b.project_id where a.project_id='${proj_id}' and a.user_id='${user_id}';`, async function (error, result, fields){
+                                                if(result.rowCount == 0){
+                                                    response.not_found('Member in the Project Not Found', res)
+                                                } else {
+                                                    if(req.query.name || req.query.type ) {
+                                                        await connection.query(`SELECT a.document_id, a.name, a.path, a.type, a.upload_date FROM document a LEFT JOIN "user" b on a.user_id=b.user_id WHERE a.user_id='${user_id}' and (LOWER(a.name) LIKE LOWER('%${req.query.name}%') and LOWER(a.type) LIKE LOWER('%${req.query.type}%')) offset ${offset} limit ${limit};`, function (error, result, fields){
+                                                            if(error){
+                                                                console.log(error)
+                                                            } else {
+                                                                var dataDocument = []
+                                                                for (var i = 0; i < result.rows.length; i++) {
+                                                                    var row = result.rows[i];
+                                                                    var data_getDocument = {
+                                                                        "id": row.document_id,
+                                                                        "name": row.name,
+                                                                        "path": row.path,
+                                                                        "type": row.type,
+                                                                        "createDate": row.upload_date
+                                                                    }
+                                                                    dataDocument.push(data_getDocument)
+                                                                }
+                                                                console.log(i)
+                                                                limit = 'All' ? i : req.query.limit;
+                                                                response.success_get(dataDocument, offset, limit, i, res)
+                                                            }
+                                                        })
+                                                    } else {
+                                                        await connection.query(`SELECT a.document_id, a.name, a.path, a.type, a.upload_date FROM document a LEFT JOIN "user" b on a.user_id=b.user_id WHERE a.user_id='${user_id}' offset ${offset} limit ${limit};`, function (error, result, fields){
+                                                            if(error){
+                                                                console.log(error)
+                                                            } else {
+                                                                var dataDocument = []
+                                                                for (var i = 0; i < result.rows.length; i++) {
+                                                                    var row = result.rows[i];
+                                                                    var data_getDocument = {
+                                                                        "id": row.document_id,
+                                                                        "name": row.name,
+                                                                        "path": row.path,
+                                                                        "type": row.type,
+                                                                        "createDate": row.upload_date
+                                                                    }
+                                                                    dataDocument.push(data_getDocument)
+                                                                }
+                                                                console.log(i)
+                                                                limit = 'All' ? i : req.query.limit;
+                                                                response.success_get(dataDocument, offset, limit, i, res)
+                                                            }
+                                                        })
+                                                    }
                                                 }
-                                                dataDocument.push(data_getDocument)
-                                            }
-                                            console.log(i)
-                                            response.success_get(dataDocument, offset, limit, i, res)
+                                            })
                                         }
                                     })
                                 }
@@ -1070,6 +1240,8 @@ exports.postMemberDoc = async function(req, res) {
     minutes < 10 ? minutes = 0 + "" + minutes : minutes;
     seconds < 10 ? seconds = 0 + "" + seconds : seconds;
 
+    var proj_id = req.params.id
+    var user_id = req.params.mid
     var date_now = date.getUTCFullYear() + "-" + month + "-" + day + " " + hours + ":" + minutes + ":" + seconds;
     const schema = Joi.object().keys({
         type: Joi.string().valid('ktp', 'kk', 'lab', 'statement', 'other').max(11).required(),
@@ -1089,85 +1261,94 @@ exports.postMemberDoc = async function(req, res) {
             } else if (date_now > result.rows[0].token_expired) {
                 response.unauthor('Your Token Is Expired', res)
             } else {
-                if(!req.files.file) {
-                    response.bad_req('Missing Property File', res)
-                } else {
-                    Joi.validate(req.body, schema, async function (err, value) { 
-                        if (err) {
-                            response.bad_req(err.details[0].message, res)
+                await connection.query(`SELECT user_id from "user" where token='${token}'`, async function (error, result, fields){
+                    if(error){
+                        console.log(error)
+                    } else{
+                        var user_id_checking = result.rows[0].user_id
+                        if(user_id_checking !== user_id) {
+                            response.unauthor('You are just allowed to post your document', res)
                         } else {
-                            var document_id = crypto.createHash('sha1').update('Document' + date_now + type).digest('hex');
-                            
-                            var proj_id = req.params.id
-                            var user_id = req.params.mid
-                            var file = req.files.file
-                            var type = req.body.type
-                    
-                            var ext = file.name.substring(file.name.lastIndexOf("."));
-                            var result           = '';
-                            var characters       = 'ABCDEFGH23456IJKLMNOPQRShijklmnTUVWXYZabcdefgopqrstuvwxyz01789';
-                            for ( var i = 0; i < 25; i++ ) {
-                                result += characters.charAt(Math.floor(Math.random() * 15));
-                            }
-                            var uploadedFileName = result + ext;
-                            var path = ssl + host + ":" + port + "/uploadfile/" + user_id + '/' + type + '/' + uploadedFileName
-                    
-                            await connection.query(`select project_id from project where project_id='${proj_id}'`, async function (error, result, fields){
-                                if(result.rowCount == 0){
-                                    response.not_found('Project Not Found', res)
-                                } else {
-                                    await connection.query(`SELECT a.user_id FROM "user" a left join project b on a.project_id=b.project_id where a.project_id='${proj_id}' and a.user_id='${user_id}';`, async function (error, result, fields){
-                                        if(result.rowCount == 0){
-                                            response.not_found('Member in this Project Not Found', res)
-                                        } else {
-                                            var dirPath_id = `./storage/uploadfile/${user_id}/`
-                                            var dirPath_type = `./storage/uploadfile/${user_id}/${type}/`
-                                            if (!fs.existsSync(dirPath_id)) {
-                                                var dir = fs.mkdirSync(dirPath_id);
-                                            }
-                                            if (!fs.existsSync(dirPath_type)) {
-                                                var dir = fs.mkdirSync(dirPath_type);
-                                            }
-                                            file.name = uploadedFileName
-                                            file.mv(dirPath_type + file.name, function(error, result) {
-                                                if (error){
-                                                    console.log(error)
-                                                } else {
-                                                    console.log('Image Berhasil Disimpan Dilocal')
-                                                }
-                                            })
-                                            await connection.query(`INSERT INTO document (document_id, name, path, type, upload_date, user_id) VALUES ('${document_id}', '${uploadedFileName}', '${path}', '${type}', '${date_now}', '${user_id}');`, async function (error, result, fields){
-                                                if(error){
-                                                    console.log(error)
-                                                } else {
-                                                    await connection.query(`SELECT a.document_id, a.name, a.path, a.type, a.upload_date FROM document a LEFT JOIN "user" b on a.user_id=b.user_id WHERE a.user_id='${user_id}' and a.document_id='${document_id}';`, function (error, result, fields){
-                                                        if(error){
-                                                            console.log(error)
-                                                        } else {
-                                                            var dataDocument = []
-                                                                for (var i = 0; i < result.rows.length; i++) {
-                                                                    var row = result.rows[i];
-                                                                    var data_getDocument = {
-                                                                        "id": row.document_id,
-                                                                        "name": row.name,
-                                                                        "path": row.path,
-                                                                        "type": row.type,
-                                                                        "createDate": row.upload_date
-                                                                    }
-                                                                    dataDocument.push(data_getDocument)
-                                                                }
-                                                            response.success_post_put("Document have been upload", dataDocument, res)
-                                                        }
-                                                    })
-                                                }
-                                            })
+                            if(!req.files.file) {
+                                response.bad_req('Missing Property File', res)
+                            } else {
+                                Joi.validate(req.body, schema, async function (err, value) { 
+                                    if (err) {
+                                        response.bad_req(err.details[0].message, res)
+                                    } else {
+                                        var document_id = crypto.createHash('sha1').update('Document' + date_now + type).digest('hex');
+            
+                                        var file = req.files.file
+                                        var type = req.body.type
+                                
+                                        var ext = file.name.substring(file.name.lastIndexOf("."));
+                                        var result           = '';
+                                        var characters       = 'ABCDEFGH23456IJKLMNOPQRShijklmnTUVWXYZabcdefgopqrstuvwxyz01789';
+                                        for ( var i = 0; i < 25; i++ ) {
+                                            result += characters.charAt(Math.floor(Math.random() * 15));
                                         }
-                                    })
-                                }
-                            })
+                                        var uploadedFileName = result + ext;
+                                        var path = ssl + host + ":" + port + "/uploadfile/" + user_id + '/' + type + '/' + uploadedFileName
+                                
+                                        await connection.query(`select project_id from project where project_id='${proj_id}'`, async function (error, result, fields){
+                                            if(result.rowCount == 0){
+                                                response.not_found('Project Not Found', res)
+                                            } else {
+                                                await connection.query(`SELECT a.user_id FROM "user" a left join project b on a.project_id=b.project_id where a.project_id='${proj_id}' and a.user_id='${user_id}';`, async function (error, result, fields){
+                                                    if(result.rowCount == 0){
+                                                        response.not_found('Member in this Project Not Found', res)
+                                                    } else {
+                                                        var dirPath_id = `./storage/uploadfile/${user_id}/`
+                                                        var dirPath_type = `./storage/uploadfile/${user_id}/${type}/`
+                                                        if (!fs.existsSync(dirPath_id)) {
+                                                            var dir = fs.mkdirSync(dirPath_id);
+                                                        }
+                                                        if (!fs.existsSync(dirPath_type)) {
+                                                            var dir = fs.mkdirSync(dirPath_type);
+                                                        }
+                                                        file.name = uploadedFileName
+                                                        file.mv(dirPath_type + file.name, function(error, result) {
+                                                            if (error){
+                                                                console.log(error)
+                                                            } else {
+                                                                console.log('Image Berhasil Disimpan Dilocal')
+                                                            }
+                                                        })
+                                                        await connection.query(`INSERT INTO document (document_id, name, path, type, upload_date, user_id) VALUES ('${document_id}', '${uploadedFileName}', '${path}', '${type}', '${date_now}', '${user_id}');`, async function (error, result, fields){
+                                                            if(error){
+                                                                console.log(error)
+                                                            } else {
+                                                                await connection.query(`SELECT a.document_id, a.name, a.path, a.type, a.upload_date FROM document a LEFT JOIN "user" b on a.user_id=b.user_id WHERE a.user_id='${user_id}' and a.document_id='${document_id}';`, function (error, result, fields){
+                                                                    if(error){
+                                                                        console.log(error)
+                                                                    } else {
+                                                                        var dataDocument = []
+                                                                            for (var i = 0; i < result.rows.length; i++) {
+                                                                                var row = result.rows[i];
+                                                                                var data_getDocument = {
+                                                                                    "id": row.document_id,
+                                                                                    "name": row.name,
+                                                                                    "path": row.path,
+                                                                                    "type": row.type,
+                                                                                    "createDate": row.upload_date
+                                                                                }
+                                                                                dataDocument.push(data_getDocument)
+                                                                            }
+                                                                        response.success_post_put("Document have been upload", dataDocument, res)
+                                                                    }
+                                                                })
+                                                            }
+                                                        })
+                                                    }
+                                                })
+                                            }
+                                        })
+                                    }
+                                });
+                            }
                         }
-                    });
-                }
+                    }
+                })
             }
         });
     }
@@ -1206,35 +1387,53 @@ exports.getMemberDocID = async function(req, res) {
             } else if (date_now > result.rows[0].token_expired) {
                 response.unauthor('Your Token Is Expired', res)
             } else {
-                await connection.query(`select project_id from project where project_id='${proj_id}'`, async function (error, result, fields){
-                    if(result.rowCount == 0){
-                        response.not_found('Project Not Found', res)
+                await connection.query(`SELECT user_id from document where document_id='${document_id}'`, async function (error, result, fields){
+                    if(error){
+                        console.log(error)
                     } else {
-                        await connection.query(`SELECT a.user_id FROM "user" a left join project b on a.project_id=b.project_id where a.project_id='${proj_id}' and a.user_id='${user_id}';`, async function (error, result, fields){
-                            if(result.rowCount == 0){
-                                response.not_found('Member in the Project Not Found', res)
-                            } else {
-                                await connection.query(`SELECT a.document_id, a.name, a.path, a."type", a.upload_date FROM document a LEFT JOIN "user" b on a.user_id=b.user_id WHERE a.user_id='${user_id}' and a.document_id='${document_id}';`, function (error, result, fields){
-                                    if(error){
-                                        console.log(error)
-                                    } else if(result.rowCount == 0){
-                                        response.not_found('Document Not Found', res)
-                                    } else {
-                                        var dataDocument = []
-                                            for (var i = 0; i < result.rows.length; i++) {
-                                                var row = result.rows[i];
-                                                var data_getDocument = {
-                                                    "id": row.document_id,
-                                                    "name": row.name,
-                                                    "path": row.path,
-                                                    "type": row.type,
-                                                    "createDate": row.upload_date
+                        var user_id_document = result.rows[0].user_id
+                        await connection.query(`SELECT user_id from "user" where token='${token}'`, async function (error, result, fields){
+                            if(error){
+                                console.log(error)
+                            } else{
+                                var user_id_checking = result.rows[0].user_id
+                                if(user_id_checking !== user_id_document) {
+                                    response.unauthor('You are just allowed to get your document', res)
+                                } else {
+                                    await connection.query(`select project_id from project where project_id='${proj_id}'`, async function (error, result, fields){
+                                        if(result.rowCount == 0){
+                                            response.not_found('Project Not Found', res)
+                                        } else {
+                                            await connection.query(`SELECT a.user_id FROM "user" a left join project b on a.project_id=b.project_id where a.project_id='${proj_id}' and a.user_id='${user_id}';`, async function (error, result, fields){
+                                                if(result.rowCount == 0){
+                                                    response.not_found('Member in the Project Not Found', res)
+                                                } else {
+                                                    await connection.query(`SELECT a.document_id, a.name, a.path, a."type", a.upload_date FROM document a LEFT JOIN "user" b on a.user_id=b.user_id WHERE a.user_id='${user_id}' and a.document_id='${document_id}';`, function (error, result, fields){
+                                                        if(error){
+                                                            console.log(error)
+                                                        } else if(result.rowCount == 0){
+                                                            response.not_found('Document Not Found', res)
+                                                        } else {
+                                                            var dataDocument = []
+                                                                for (var i = 0; i < result.rows.length; i++) {
+                                                                    var row = result.rows[i];
+                                                                    var data_getDocument = {
+                                                                        "id": row.document_id,
+                                                                        "name": row.name,
+                                                                        "path": row.path,
+                                                                        "type": row.type,
+                                                                        "createDate": row.upload_date
+                                                                    }
+                                                                    dataDocument.push(data_getDocument)
+                                                                }
+                                                            response.success_getID(dataDocument, res)
+                                                        }
+                                                    })
                                                 }
-                                                dataDocument.push(data_getDocument)
-                                            }
-                                        response.success_getID(dataDocument, res)
-                                    }
-                                })
+                                            })
+                                        }
+                                    })
+                                }
                             }
                         })
                     }
@@ -1277,23 +1476,41 @@ exports.deleteMemberDocID = async function(req, res) {
             } else if (date_now > result.rows[0].token_expired) {
                 response.unauthor('Your Token Is Expired', res)
             } else {
-                await connection.query(`select project_id from project where project_id='${proj_id}'`, async function (error, result, fields){
-                    if(result.rowCount == 0){
-                        response.not_found('Project Not Found', res)
+                await connection.query(`SELECT user_id from document where document_id='${document_id}'`, async function (error, result, fields){
+                    if(error){
+                        console.log(error)
                     } else {
-                        await connection.query(`SELECT a.user_id FROM "user" a left join project b on a.project_id=b.project_id where a.project_id='${proj_id}' and a.user_id='${user_id}';`, async function (error, result, fields){
-                            if(result.rowCount == 0){
-                                response.not_found('Member in the Project Not Found', res)
-                            } else {
-                                await connection.query(`DELETE FROM document WHERE user_id='${user_id}' and document_id='${document_id}';`, function (error, result, fields){
-                                    if(error){
-                                        console.log(error)
-                                    } else if(result.rowCount == 0){
-                                        response.not_found('Document Not Found', res)
-                                    } else {
-                                        response.success_delete('Document have been delete', res)
-                                    }
-                                })
+                        var user_id_document = result.rows[0].user_id
+                        await connection.query(`SELECT user_id from "user" where token='${token}'`, async function (error, result, fields){
+                            if(error){
+                                console.log(error)
+                            } else{
+                                var user_id_checking = result.rows[0].user_id
+                                if(user_id_checking !== user_id_document) {
+                                    response.unauthor('You are just allowed to get your document', res)
+                                } else {
+                                    await connection.query(`select project_id from project where project_id='${proj_id}'`, async function (error, result, fields){
+                                        if(result.rowCount == 0){
+                                            response.not_found('Project Not Found', res)
+                                        } else {
+                                            await connection.query(`SELECT a.user_id FROM "user" a left join project b on a.project_id=b.project_id where a.project_id='${proj_id}' and a.user_id='${user_id}';`, async function (error, result, fields){
+                                                if(result.rowCount == 0){
+                                                    response.not_found('Member in the Project Not Found', res)
+                                                } else {
+                                                    await connection.query(`DELETE FROM document WHERE user_id='${user_id}' and document_id='${document_id}';`, function (error, result, fields){
+                                                        if(error){
+                                                            console.log(error)
+                                                        } else if(result.rowCount == 0){
+                                                            response.not_found('Document Not Found', res)
+                                                        } else {
+                                                            response.success_delete('Document have been delete', res)
+                                                        }
+                                                    })
+                                                }
+                                            })
+                                        }
+                                    })
+                                }
                             }
                         })
                     }

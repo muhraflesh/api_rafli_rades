@@ -41,48 +41,68 @@ exports.get = async function(req, res) {
             } else if (date_now > result.rows[0].token_expired) {
                 response.unauthor('Your Token Is Expired', res)
             } else {
-                if(req.query.name || req.query.type ) {
-                    await connection.query(`SELECT document_id, name, path, type, upload_date FROM document WHERE LOWER(name) LIKE LOWER('%${req.query.name}%') or LOWER(type) LIKE LOWER('%${req.query.type}%') offset ${offset} limit ${limit};`, function (error, result, fields){
-                        if(error){
-                            console.log(error)
-                        } else {
-                            var dataDocument = []
-                            for (var i = 0; i < result.rows.length; i++) {
-                                var row = result.rows[i];
-                                var data_getDocument = {
-                                    "id": row.document_id,
-                                    "name": row.name,
-                                    "path": row.path,
-                                    "type": row.type,
-                                    "createDate": row.upload_date
+                await connection.query(`SELECT role_id from "user" where token='${token}'`, async function (error, result, fields){
+                    if(error){
+                        console.log(error)
+                    } else{
+                        var role_id_checking = result.rows[0].role_id
+                        await connection.query(`SELECT lower(a.role_name) from role a LEFT JOIN "user" b on a.role_id=b.role_id where a.role_id='${role_id_checking}'`, async function (error, result, fields){
+                            if(error){
+                                console.log(error)
+                            } else {
+                                var role_name_checking = result.rows[0].lower
+                                if(role_name_checking !== 'super_admin' & role_name_checking !== 'yti') {
+                                    response.unauthor('You are not allowed to get all document', res)
+                                } else {
+                                    if(req.query.name || req.query.type ) {
+                                        await connection.query(`SELECT document_id, name, path, type, upload_date FROM document WHERE LOWER(name) LIKE LOWER('%${req.query.name}%') and LOWER(type) LIKE LOWER('%${req.query.type}%') offset ${offset} limit ${limit};`, function (error, result, fields){
+                                            if(error){
+                                                console.log(error)
+                                            } else {
+                                                var dataDocument = []
+                                                for (var i = 0; i < result.rows.length; i++) {
+                                                    var row = result.rows[i];
+                                                    var data_getDocument = {
+                                                        "id": row.document_id,
+                                                        "name": row.name,
+                                                        "path": row.path,
+                                                        "type": row.type,
+                                                        "createDate": row.upload_date
+                                                    }
+                                                    dataDocument.push(data_getDocument)
+                                                }
+                                                limit = 'All' ? i : req.query.limit;
+                                                response.success_get(dataDocument, offset, limit, i, res)
+                                            }
+                                        })
+                                    } else {
+                                        await connection.query(`SELECT document_id, name, path, type, upload_date FROM document offset ${offset} limit ${limit};`, function (error, result, fields){
+                                            if(error){
+                                                console.log(error)
+                                            } else {
+                                                var dataDocument = []
+                                                for (var i = 0; i < result.rows.length; i++) {
+                                                    var row = result.rows[i];
+                                                    var data_getDocument = {
+                                                        "id": row.document_id,
+                                                        "name": row.name,
+                                                        "path": row.path,
+                                                        "type": row.type,
+                                                        "createDate": row.upload_date
+                                                    }
+                                                    dataDocument.push(data_getDocument)
+                                                }
+                                                console.log(i)
+                                                limit = 'All' ? i : req.query.limit;
+                                                response.success_get(dataDocument, offset, limit, i, res)
+                                            }
+                                        })
+                                    }
                                 }
-                                dataDocument.push(data_getDocument)
                             }
-                            response.success_get(dataDocument, offset, limit, i, res)
-                        }
-                    })
-                } else {
-                    await connection.query(`SELECT document_id, name, path, type, upload_date FROM document offset ${offset} limit ${limit};`, function (error, result, fields){
-                        if(error){
-                            console.log(error)
-                        } else {
-                            var dataDocument = []
-                            for (var i = 0; i < result.rows.length; i++) {
-                                var row = result.rows[i];
-                                var data_getDocument = {
-                                    "id": row.document_id,
-                                    "name": row.name,
-                                    "path": row.path,
-                                    "type": row.type,
-                                    "createDate": row.upload_date
-                                }
-                                dataDocument.push(data_getDocument)
-                            }
-                            console.log(i)
-                            response.success_get(dataDocument, offset, limit, i, res)
-                        }
-                    })
-                }
+                        })
+                    }
+                })
             }
         });
     }
@@ -227,25 +247,51 @@ exports.findByID = async function(req, res) {
             } else if (date_now > result.rows[0].token_expired) {
                 response.unauthor('Your Token Is Expired', res)
             } else {
-                await connection.query(`SELECT document_id, name, path, "type", upload_date FROM document WHERE document_id='${document_id}';`, function (error, result, fields){
+                await connection.query(`SELECT user_id from document where document_id='${document_id}'`, async function (error, result, fields){
                     if(error){
                         console.log(error)
-                    } else if(result.rowCount == 0){
-                        response.not_found('Document Not Found', res)
                     } else {
-                        var dataDocument = []
-                            for (var i = 0; i < result.rows.length; i++) {
-                                var row = result.rows[i];
-                                var data_getDocument = {
-                                    "id": row.document_id,
-                                    "name": row.name,
-                                    "path": row.path,
-                                    "type": row.type,
-                                    "createDate": row.upload_date
-                                }
-                                dataDocument.push(data_getDocument)
+                        var user_id_document = result.rows[0].user_id
+                        await connection.query(`SELECT role_id, user_id from "user" where token='${token}'`, async function (error, result, fields){
+                            if(error){
+                                console.log(error)
+                            } else{
+                                var role_id_checking = result.rows[0].role_id
+                                var user_id_checking = result.rows[0].user_id
+                                await connection.query(`SELECT lower(a.role_name) from role a LEFT JOIN "user" b on a.role_id=b.role_id where a.role_id='${role_id_checking}'`, async function (error, result, fields){
+                                    if(error){
+                                        console.log(error)
+                                    } else {
+                                        var role_name_checking = result.rows[0].lower
+                                        if(user_id_checking !== user_id_document) {
+                                            response.unauthor('You are just allowed to get your document', res)
+                                        } else {
+                                            await connection.query(`SELECT document_id, name, path, "type", upload_date FROM document WHERE document_id='${document_id}';`, function (error, result, fields){
+                                                if(error){
+                                                    console.log(error)
+                                                } else if(result.rowCount == 0){
+                                                    response.not_found('Document Not Found', res)
+                                                } else {
+                                                    var dataDocument = []
+                                                        for (var i = 0; i < result.rows.length; i++) {
+                                                            var row = result.rows[i];
+                                                            var data_getDocument = {
+                                                                "id": row.document_id,
+                                                                "name": row.name,
+                                                                "path": row.path,
+                                                                "type": row.type,
+                                                                "createDate": row.upload_date
+                                                            }
+                                                            dataDocument.push(data_getDocument)
+                                                        }
+                                                    response.success_getID(dataDocument, res)
+                                                }
+                                            })
+                                        }
+                                    }
+                                })
                             }
-                        response.success_getID(dataDocument, res)
+                        })
                     }
                 })
             }
@@ -283,13 +329,31 @@ exports.delete = async function(req, res) {
             } else if (date_now > result.rows[0].token_expired) {
                 response.unauthor('Your Token Is Expired', res)
             } else {
-                await connection.query(`DELETE FROM document WHERE document_id='${document_id}';`, function (error, result, fields){
+                await connection.query(`SELECT role_id from "user" where token='${token}'`, async function (error, result, fields){
                     if(error){
                         console.log(error)
-                    } else if(result.rowCount == 0){
-                        response.not_found('Document Not Found', res)
-                    } else {
-                        response.success_delete('Document have been delete', res)
+                    } else{
+                        var role_id_checking = result.rows[0].role_id
+                        await connection.query(`SELECT lower(a.role_name) from role a LEFT JOIN "user" b on a.role_id=b.role_id where a.role_id='${role_id_checking}'`, async function (error, result, fields){
+                            if(error){
+                                console.log(error)
+                            } else {
+                                var role_name_checking = result.rows[0].lower
+                                if(role_name_checking !== 'super_admin' & role_name_checking !== 'yti') {
+                                    response.unauthor('You are not allowed to delete document', res)
+                                } else {
+                                    await connection.query(`DELETE FROM document WHERE document_id='${document_id}';`, function (error, result, fields){
+                                        if(error){
+                                            console.log(error)
+                                        } else if(result.rowCount == 0){
+                                            response.not_found('Document Not Found', res)
+                                        } else {
+                                            response.success_delete('Document have been delete', res)
+                                        }
+                                    })
+                                }
+                            }
+                        })
                     }
                 })
             }
@@ -328,24 +392,50 @@ exports.download = async function(req, res) {
             } else if (date_now > result.rows[0].token_expired) {
                 response.unauthor('Your Token Is Expired', res)
             } else {
-                await connection.query(`SELECT name, path FROM document WHERE document_id='${document_id}';`, async function (error, result, fields){
+                await connection.query(`SELECT user_id from document where document_id='${document_id}'`, async function (error, result, fields){
                     if(error){
                         console.log(error)
-                    } else if(result.rowCount == 0){
-                        response.not_found('Document Not Found', res)
                     } else {
-                        var path = result.rows[0].path.split('/')
-                        var path_upload = path[3]
-                        var path_userId = path[4]
-                        var path_type = path[5]
-                        var name = result.rows[0].name
-                        var download = 'storage/' + path_upload + '/' + path_userId + '/' + path_type + '/' + name
-            
-                        res.download(download, function (err) {
-                            if (err) {
-                              console.log(err)
-                            } else {
-                              // Sukses Download
+                        var user_id_document = result.rows[0].user_id
+                        await connection.query(`SELECT role_id, user_id from "user" where token='${token}'`, async function (error, result, fields){
+                            if(error){
+                                console.log(error)
+                            } else{
+                                var role_id_checking = result.rows[0].role_id
+                                var user_id_checking = result.rows[0].user_id
+                                await connection.query(`SELECT lower(a.role_name) from role a LEFT JOIN "user" b on a.role_id=b.role_id where a.role_id='${role_id_checking}'`, async function (error, result, fields){
+                                    if(error){
+                                        console.log(error)
+                                    } else {
+                                        var role_name_checking = result.rows[0].lower
+                                        if((role_name_checking == 'member' || role_name_checking == 'popti') & user_id_checking !== user_id_document) {
+                                            response.unauthor('You are just allowed to download your document', res)
+                                        } else {
+                                            await connection.query(`SELECT name, path FROM document WHERE document_id='${document_id}';`, async function (error, result, fields){
+                                                if(error){
+                                                    console.log(error)
+                                                } else if(result.rowCount == 0){
+                                                    response.not_found('Document Not Found', res)
+                                                } else {
+                                                    var path = result.rows[0].path.split('/')
+                                                    var path_upload = path[3]
+                                                    var path_userId = path[4]
+                                                    var path_type = path[5]
+                                                    var name = result.rows[0].name
+                                                    var download = 'storage/' + path_upload + '/' + path_userId + '/' + path_type + '/' + name
+                                        
+                                                    res.download(download, function (err) {
+                                                        if (err) {
+                                                          console.log(err)
+                                                        } else {
+                                                          // Sukses Download
+                                                        }
+                                                    })
+                                                }
+                                            })
+                                        }
+                                    }
+                                })
                             }
                         })
                     }

@@ -37,45 +37,64 @@ exports.get = function(req, res) {
             } else if (date_now > result.rows[0].token_expired) {
                 response.unauthor('Your Token Is Expired', res)
             } else {
-                if(req.query.name || req.query.desc) {
-                    connection.query(
-                        `SELECT * FROM role WHERE LOWER(role_name) LIKE LOWER('%${req.query.name}%') or LOWER(role_description) LIKE LOWER('%${req.query.desc}%') order by role_name offset ${offset} limit ${limit}`,
-                        function (error, result, fields){
-                        if(error){
-                            console.log(error)
-                        } else{
-                            var dataRole = []
-                            for (var i = 0; i < result.rows.length; i++) {
-                                var row = result.rows[i];
-                                var data_getRole = {
-                                    "id": row.role_id,
-                                    "name": row.role_name,
-                                    "description": row.role_description
+                await connection.query(`SELECT role_id from "user" where token='${token}'`, async function (error, result, fields){
+                    if(error){
+                        console.log(error)
+                    } else{
+                        var role_id_checking = result.rows[0].role_id
+                        await connection.query(`SELECT lower(a.role_name) from role a LEFT JOIN "user" b on a.role_id=b.role_id where a.role_id='${role_id_checking}'`, async function (error, result, fields){
+                            if(error){
+                                console.log(error)
+                            } else {
+                                var role_name_checking = result.rows[0].lower
+                                if(role_name_checking !== 'super_admin' & role_name_checking !== 'yti') {
+                                    response.unauthor('You are not allowed to get role', res)
+                                } else {
+                                    if(req.query.name || req.query.desc) {
+                                        connection.query(
+                                            `SELECT * FROM role WHERE LOWER(role_name) LIKE LOWER('%${req.query.name}%') or LOWER(role_description) LIKE LOWER('%${req.query.desc}%') order by role_name offset ${offset} limit ${limit}`,
+                                            function (error, result, fields){
+                                            if(error){
+                                                console.log(error)
+                                            } else{
+                                                var dataRole = []
+                                                for (var i = 0; i < result.rows.length; i++) {
+                                                    var row = result.rows[i];
+                                                    var data_getRole = {
+                                                        "id": row.role_id,
+                                                        "name": row.role_name,
+                                                        "description": row.role_description
+                                                    }
+                                                    dataRole.push(data_getRole)
+                                                }
+                                                response.success_get(dataRole, offset, limit, i, res)
+                                            }
+                                        });
+                                    } else {
+                                        connection.query(`SELECT * FROM role offset ${offset} limit ${limit};`, function (error, result, fields){
+                                            if(error){
+                                                console.log(error)
+                                            } else{
+                                                var dataRole = []
+                                                for (var i = 0; i < result.rows.length; i++) {
+                                                    var row = result.rows[i];
+                                                    var data_getRole = {
+                                                        "id": row.role_id,
+                                                        "name": row.role_name,
+                                                        "description": row.role_description
+                                                    }
+                                                    dataRole.push(data_getRole)
+                                                }
+                                                var limit = limit == 'All' ? 0 : req.query.limit;
+                                                response.success_get(dataRole, offset, limit, i, res)
+                                            }
+                                        });
+                                    }
                                 }
-                                dataRole.push(data_getRole)
                             }
-                            response.success_get(dataRole, offset, limit, i, res)
-                        }
-                    });
-                } else {
-                    connection.query(`SELECT * FROM role offset ${offset} limit ${limit};`, function (error, result, fields){
-                        if(error){
-                            console.log(error)
-                        } else{
-                            var dataRole = []
-                            for (var i = 0; i < result.rows.length; i++) {
-                                var row = result.rows[i];
-                                var data_getRole = {
-                                    "id": row.role_id,
-                                    "name": row.role_name,
-                                    "description": row.role_description
-                                }
-                                dataRole.push(data_getRole)
-                            }
-                            response.success_get(dataRole, offset, limit, i, res)
-                        }
-                    });
-                }
+                        })
+                    }
+                })
             }
         });
     }
@@ -119,37 +138,56 @@ exports.post = async function(req, res) {
             } else if (date_now > result.rows[0].token_expired) {
                 response.unauthor('Your Token Is Expired', res)
             } else {
-                await connection.query(`SELECT role_id from role where role_name='${role_name}';`, async function (error, result, fields){
-                    if(result.rowCount !== 0){
-                        response.conflict('Name have been used', res)
-                    } else {
-                        Joi.validate(req.body, schema, async function (err, value) { 
-                            if (err) {
-                                response.bad_req(err.details[0].message, res)
+                await connection.query(`SELECT role_id from "user" where token='${token}'`, async function (error, result, fields){
+                    if(error){
+                        console.log(error)
+                    } else{
+                        var role_id_checking = result.rows[0].role_id
+                        await connection.query(`SELECT lower(a.role_name) from role a LEFT JOIN "user" b on a.role_id=b.role_id where a.role_id='${role_id_checking}'`, async function (error, result, fields){
+                            if(error){
+                                console.log(error)
                             } else {
-                                await connection.query(`INSERT INTO role(role_id, role_name, role_description) VALUES ('${role_id}', '${role_name}', '${role_description}')`, async function (error, result, fields){
-                                    if(!error){
-                                        await connection.query(`SELECT * from role where role_id='${role_id}'`, function (error, result, fields){
-                                            if(error){
-                                                console.log(error)
-                                            } else{
-                                                var dataRole = []
-                                                for (var i = 0; i < result.rows.length; i++) {
-                                                    var row = result.rows[i];
-                                                    var data_getRole = {
-                                                        "id": row.role_id,
-                                                        "name": row.role_name,
-                                                        "description": row.role_description
-                                                    }
-                                                    dataRole.push(data_getRole)
+                                var role_name_checking = result.rows[0].lower
+                                console.log(role_name_checking)
+                                if(role_name_checking !== 'super_admin') {
+                                    response.unauthor('You are not allowed to create role', res)
+                                } else {
+                                    await connection.query(`SELECT role_id from role where role_name='${role_name}';`, async function (error, result, fields){
+                                        if(result.rowCount !== 0){
+                                            response.conflict('Name have been used', res)
+                                        } else {
+                                            Joi.validate(req.body, schema, async function (err, value) { 
+                                                if (err) {
+                                                    response.bad_req(err.details[0].message, res)
+                                                } else {
+                                                    await connection.query(`INSERT INTO role(role_id, role_name, role_description) VALUES ('${role_id}', '${role_name}', '${role_description}')`, async function (error, result, fields){
+                                                        if(!error){
+                                                            await connection.query(`SELECT * from role where role_id='${role_id}'`, function (error, result, fields){
+                                                                if(error){
+                                                                    console.log(error)
+                                                                } else{
+                                                                    var dataRole = []
+                                                                    for (var i = 0; i < result.rows.length; i++) {
+                                                                        var row = result.rows[i];
+                                                                        var data_getRole = {
+                                                                            "id": row.role_id,
+                                                                            "name": row.role_name,
+                                                                            "description": row.role_description
+                                                                        }
+                                                                        dataRole.push(data_getRole)
+                                                                    }
+                                                                    response.success_post_put("Role have been create", dataRole, res)
+                                                                }
+                                                            });
+                                                        }
+                                                    });
                                                 }
-                                                response.success_post_put("Role have been create", dataRole, res)
-                                            }
-                                        });
-                                    }
-                                });
+                                            });
+                                        }
+                                    })
+                                }
                             }
-                        });
+                        })
                     }
                 })
             }
@@ -187,25 +225,43 @@ exports.findByID = function(req, res) {
             } else if (date_now > result.rows[0].token_expired) {
                 response.unauthor('Your Token Is Expired', res)
             } else {
-                connection.query(`SELECT * FROM role where role_id='${role_id}'`, function (error, result, fields){
+                await connection.query(`SELECT role_id from "user" where token='${token}'`, async function (error, result, fields){
                     if(error){
                         console.log(error)
-                    } else if(result.rowCount == 0) {
-                        response.not_found('Role Not Found', res)
                     } else{
-                        var dataRole = []
-                        for (var i = 0; i < result.rows.length; i++) {
-                            var row = result.rows[i];
-                            var data_getRole = {
-                                "id": row.role_id,
-                                "name": row.role_name,
-                                "description": row.role_description
+                        var role_id_checking = result.rows[0].role_id
+                        await connection.query(`SELECT lower(a.role_name) from role a LEFT JOIN "user" b on a.role_id=b.role_id where a.role_id='${role_id_checking}'`, async function (error, result, fields){
+                            if(error){
+                                console.log(error)
+                            } else {
+                                var role_name_checking = result.rows[0].lower
+                                if(role_name_checking !== 'super_admin' & role_name_checking !== 'yti') {
+                                    response.unauthor('You are not allowed to get role', res)
+                                } else {
+                                    connection.query(`SELECT * FROM role where role_id='${role_id}'`, function (error, result, fields){
+                                        if(error){
+                                            console.log(error)
+                                        } else if(result.rowCount == 0) {
+                                            response.not_found('Role Not Found', res)
+                                        } else{
+                                            var dataRole = []
+                                            for (var i = 0; i < result.rows.length; i++) {
+                                                var row = result.rows[i];
+                                                var data_getRole = {
+                                                    "id": row.role_id,
+                                                    "name": row.role_name,
+                                                    "description": row.role_description
+                                                }
+                                                dataRole.push(data_getRole)
+                                            }
+                                            response.success_getID(dataRole, res)
+                                        }
+                                    });
+                                }
                             }
-                            dataRole.push(data_getRole)
-                        }
-                        response.success_getID(dataRole, res)
+                        })
                     }
-                });
+                })
             }
         });
     }
@@ -248,54 +304,72 @@ exports.put = async function(req, res) {
             } else if (date_now > result.rows[0].token_expired) {
                 response.unauthor('Your Token Is Expired', res)
             } else {
-                await connection.query(`SELECT role_id from role where role_name='${name}';`, async function (error, result, fields){
-                    if(result.rowCount !== 0){
-                        response.conflict('Name have been used', res)
-                    } else {
-                        Joi.validate(req.body, schema, async function (err, value) { 
-                            if (err) {
-                                response.bad_req(err.details[0].message, res)
+                await connection.query(`SELECT role_id from "user" where token='${token}'`, async function (error, result, fields){
+                    if(error){
+                        console.log(error)
+                    } else{
+                        var role_id_checking = result.rows[0].role_id
+                        await connection.query(`SELECT lower(a.role_name) from role a LEFT JOIN "user" b on a.role_id=b.role_id where a.role_id='${role_id_checking}'`, async function (error, result, fields){
+                            if(error){
+                                console.log(error)
                             } else {
-                                await connection.query(`select role_id from role where role_id='${role_id}'`, async function (error, result, fields){
-                                    if(result.rowCount == 0){
-                                        response.not_found('Role Not Found', res)
-                                    } else {
-                                        let query = "UPDATE role SET "
-                                        let flag = false
-                                        if(name){
-                                            query = query + `role_name = '${name}'`
-                                            flag = true
-                                        }
-                                        if(description){
-                                            flag == true ? query = query + `, role_description = '${description}'` : query = query + `role_description = '${description}'`
-                                            flag = true
-                                        }
-                                        query = query + ` where role_id='${role_id}';`
-                                        console.log(query)
-                            
-                                        await connection.query(query, async function (error, result, fields){
-                                            if(!error){
-                                                await connection.query(`SELECT * FROM role where role_id='${role_id}'`, function (error, result, fields){
-                                                    if(error){
-                                                        console.log(error)
-                                                    } else {
-                                                        var dataRole = []
-                                                        for (var i = 0; i < result.rows.length; i++) {
-                                                            var row = result.rows[i];
-                                                            var data_getRole = {
-                                                                "id": row.role_id,
-                                                                "name": row.role_name,
-                                                                "description": row.role_description
+                                var role_name_checking = result.rows[0].lower
+                                if(role_name_checking !== 'super_admin') {
+                                    response.unauthor('You are not allowed to update role', res)
+                                } else {
+                                    await connection.query(`SELECT role_id from role where role_name='${name}';`, async function (error, result, fields){
+                                        if(result.rowCount !== 0){
+                                            response.conflict('Name have been used', res)
+                                        } else {
+                                            Joi.validate(req.body, schema, async function (err, value) { 
+                                                if (err) {
+                                                    response.bad_req(err.details[0].message, res)
+                                                } else {
+                                                    await connection.query(`select role_id from role where role_id='${role_id}'`, async function (error, result, fields){
+                                                        if(result.rowCount == 0){
+                                                            response.not_found('Role Not Found', res)
+                                                        } else {
+                                                            let query = "UPDATE role SET "
+                                                            let flag = false
+                                                            if(name){
+                                                                query = query + `role_name = '${name}'`
+                                                                flag = true
                                                             }
-                                                            dataRole.push(data_getRole)
+                                                            if(description){
+                                                                flag == true ? query = query + `, role_description = '${description}'` : query = query + `role_description = '${description}'`
+                                                                flag = true
+                                                            }
+                                                            query = query + ` where role_id='${role_id}';`
+                                                            console.log(query)
+                                                
+                                                            await connection.query(query, async function (error, result, fields){
+                                                                if(!error){
+                                                                    await connection.query(`SELECT * FROM role where role_id='${role_id}'`, function (error, result, fields){
+                                                                        if(error){
+                                                                            console.log(error)
+                                                                        } else {
+                                                                            var dataRole = []
+                                                                            for (var i = 0; i < result.rows.length; i++) {
+                                                                                var row = result.rows[i];
+                                                                                var data_getRole = {
+                                                                                    "id": row.role_id,
+                                                                                    "name": row.role_name,
+                                                                                    "description": row.role_description
+                                                                                }
+                                                                                dataRole.push(data_getRole)
+                                                                            }
+                                                                            response.success_post_put('Role have been update', dataRole, res)
+                                                                        }
+                                                                    });
+                                                                }
+                                                            })
                                                         }
-                                                        response.success_post_put('Role have been update', dataRole, res)
-                                                    }
-                                                });
-                                            }
-                                        })
-                                    }
-                                })
+                                                    })
+                                                }
+                                            })
+                                        }
+                                    })
+                                }
                             }
                         })
                     }
@@ -335,13 +409,31 @@ exports.delete = function(req, res) {
             } else if (date_now > result.rows[0].token_expired) {
                 response.unauthor('Your Token Is Expired', res)
             } else {
-                connection.query(`DELETE FROM role WHERE role_id='${role_id}'`, function (error, result, fields){
-                    if(result.rowCount == 0){
-                        response.not_found('Role Not Found', res)
+                await connection.query(`SELECT role_id from "user" where token='${token}'`, async function (error, result, fields){
+                    if(error){
+                        console.log(error)
                     } else{
-                        response.success_delete('Role Has Been Deleted', res)
+                        var role_id_checking = result.rows[0].role_id
+                        await connection.query(`SELECT lower(a.role_name) from role a LEFT JOIN "user" b on a.role_id=b.role_id where a.role_id='${role_id_checking}'`, async function (error, result, fields){
+                            if(error){
+                                console.log(error)
+                            } else {
+                                var role_name_checking = result.rows[0].lower
+                                if(role_name_checking !== 'super_admin') {
+                                    response.unauthor('You are not allowed to delete role', res)
+                                } else {
+                                    connection.query(`DELETE FROM role WHERE role_id='${role_id}'`, function (error, result, fields){
+                                        if(result.rowCount == 0){
+                                            response.not_found('Role Not Found', res)
+                                        } else{
+                                            response.success_delete('Role Has Been Deleted', res)
+                                        }
+                                    });
+                                }
+                            }
+                        })
                     }
-                });
+                })
             }
         });
     }
@@ -377,28 +469,46 @@ exports.getPrivileges = async function(req, res) {
             } else if (date_now > result.rows[0].token_expired) {
                 response.unauthor('Your Token Is Expired', res)
             } else {
-                await connection.query(`select role_id from role where role_id='${role_id}'`, async function (error, result, fields){
-                    if(result.rowCount == 0){
-                        response.not_found('Role Not Found', res)
-                    } else {
-                        await connection.query(`select a.role_privileges_id, a.is_view, a.is_insert, a.is_update, a.is_delete, a.is_approval from role_privileges a left join role b on a.role_id=b.role_id where a.role_id='${role_id}'`, async function (error, result, fields){
+                await connection.query(`SELECT role_id from "user" where token='${token}'`, async function (error, result, fields){
+                    if(error){
+                        console.log(error)
+                    } else{
+                        var role_id_checking = result.rows[0].role_id
+                        await connection.query(`SELECT lower(a.role_name) from role a LEFT JOIN "user" b on a.role_id=b.role_id where a.role_id='${role_id_checking}'`, async function (error, result, fields){
                             if(error){
                                 console.log(error)
                             } else {
-                                var dataPrivileges = []
-                                    for (var i = 0; i < result.rows.length; i++) {
-                                        var row = result.rows[i];
-                                        var data_getPrivileges = {
-                                            "id": row.role_privileges_id,
-                                            "isView": row.is_view,
-                                            "isInsert": row.is_insert,
-                                            "isUpdate": row.is_update,
-                                            "isDelete": row.is_delete,
-                                            "isApproval": row.is_approval
+                                var role_name_checking = result.rows[0].lower
+                                if(role_name_checking !== 'super_admin' & role_name_checking !== 'yti') {
+                                    response.unauthor('You are not allowed to get role privileges', res)
+                                } else {
+                                    await connection.query(`select role_id from role where role_id='${role_id}'`, async function (error, result, fields){
+                                        if(result.rowCount == 0){
+                                            response.not_found('Role Not Found', res)
+                                        } else {
+                                            await connection.query(`select a.role_privileges_id, a.is_view, a.is_insert, a.is_update, a.is_delete, a.is_approval from role_privileges a left join role b on a.role_id=b.role_id where a.role_id='${role_id}'`, async function (error, result, fields){
+                                                if(error){
+                                                    console.log(error)
+                                                } else {
+                                                    var dataPrivileges = []
+                                                        for (var i = 0; i < result.rows.length; i++) {
+                                                            var row = result.rows[i];
+                                                            var data_getPrivileges = {
+                                                                "id": row.role_privileges_id,
+                                                                "isView": row.is_view,
+                                                                "isInsert": row.is_insert,
+                                                                "isUpdate": row.is_update,
+                                                                "isDelete": row.is_delete,
+                                                                "isApproval": row.is_approval
+                                                            }
+                                                            dataPrivileges.push(data_getPrivileges)
+                                                        }
+                                                    response.success_getID(dataPrivileges, res)
+                                                }
+                                            })
                                         }
-                                        dataPrivileges.push(data_getPrivileges)
-                                    }
-                                response.success_getID(dataPrivileges, res)
+                                    })
+                                }
                             }
                         })
                     }
@@ -454,46 +564,64 @@ exports.postPrivileges = async function(req, res) {
             } else if (date_now > result.rows[0].token_expired) {
                 response.unauthor('Your Token Is Expired', res)
             } else {
-                await connection.query(`select role_id from role where role_id='${role_id}'`, async function (error, result, fields){
-                    if(result.rowCount == 0){
-                        response.not_found('Role Not Found', res)
-                    } else {
-                        await connection.query(`select a.role_privileges_id from role_privileges a left join role b on a.role_id=b.role_id where a.role_id='${role_id}'`, async function (error, result, fields){
-                            if(result.rowCount !== 0){
-                                response.bad_req('Role Have Privileges', res)
+                await connection.query(`SELECT role_id from "user" where token='${token}'`, async function (error, result, fields){
+                    if(error){
+                        console.log(error)
+                    } else{
+                        var role_id_checking = result.rows[0].role_id
+                        await connection.query(`SELECT lower(a.role_name) from role a LEFT JOIN "user" b on a.role_id=b.role_id where a.role_id='${role_id_checking}'`, async function (error, result, fields){
+                            if(error){
+                                console.log(error)
                             } else {
-                                Joi.validate(req.body, schema, async function (err, value) { 
-                                    if (err) {
-                                        response.bad_req(err.details[0].message, res)
-                                    } else {
-                                        await connection.query(`INSERT INTO role_privileges(role_privileges_id, is_view, is_insert, is_update, is_delete, is_approval, role_id) VALUES('${privileges_id}', '${is_view}', '${is_insert}', '${is_update}', '${is_delete}', '${is_approval}', '${role_id}');`, async function (error, result, fields){
-                                            if(error){
-                                                console.log(error)
-                                            } else {
-                                                await connection.query(`select a.role_privileges_id, a.is_view, a.is_insert, a.is_update, a.is_delete, a.is_approval from role_privileges a left join role b on a.role_id=b.role_id where a.role_id='${role_id}'`, async function (error, result, fields){
-                                                    if(error){
-                                                        console.log(error)
-                                                    } else {
-                                                        var dataPrivileges = []
-                                                        for (var i = 0; i < result.rows.length; i++) {
-                                                            var row = result.rows[i];
-                                                            var data_getPrivileges = {
-                                                                "id": row.role_privileges_id,
-                                                                "isView": row.is_view,
-                                                                "isInsert": row.is_insert,
-                                                                "isUpdate": row.is_update,
-                                                                "isDelete": row.is_delete,
-                                                                "isApproval": row.is_approval
-                                                            }
-                                                            dataPrivileges.push(data_getPrivileges)
+                                var role_name_checking = result.rows[0].lower
+                                if(role_name_checking !== 'super_admin') {
+                                    response.unauthor('You are not allowed to create role privileges', res)
+                                } else {
+                                    await connection.query(`select role_id from role where role_id='${role_id}'`, async function (error, result, fields){
+                                        if(result.rowCount == 0){
+                                            response.not_found('Role Not Found', res)
+                                        } else {
+                                            await connection.query(`select a.role_privileges_id from role_privileges a left join role b on a.role_id=b.role_id where a.role_id='${role_id}'`, async function (error, result, fields){
+                                                if(result.rowCount !== 0){
+                                                    response.bad_req('Role Have Privileges', res)
+                                                } else {
+                                                    Joi.validate(req.body, schema, async function (err, value) { 
+                                                        if (err) {
+                                                            response.bad_req(err.details[0].message, res)
+                                                        } else {
+                                                            await connection.query(`INSERT INTO role_privileges(role_privileges_id, is_view, is_insert, is_update, is_delete, is_approval, role_id) VALUES('${privileges_id}', '${is_view}', '${is_insert}', '${is_update}', '${is_delete}', '${is_approval}', '${role_id}');`, async function (error, result, fields){
+                                                                if(error){
+                                                                    console.log(error)
+                                                                } else {
+                                                                    await connection.query(`select a.role_privileges_id, a.is_view, a.is_insert, a.is_update, a.is_delete, a.is_approval from role_privileges a left join role b on a.role_id=b.role_id where a.role_id='${role_id}'`, async function (error, result, fields){
+                                                                        if(error){
+                                                                            console.log(error)
+                                                                        } else {
+                                                                            var dataPrivileges = []
+                                                                            for (var i = 0; i < result.rows.length; i++) {
+                                                                                var row = result.rows[i];
+                                                                                var data_getPrivileges = {
+                                                                                    "id": row.role_privileges_id,
+                                                                                    "isView": row.is_view,
+                                                                                    "isInsert": row.is_insert,
+                                                                                    "isUpdate": row.is_update,
+                                                                                    "isDelete": row.is_delete,
+                                                                                    "isApproval": row.is_approval
+                                                                                }
+                                                                                dataPrivileges.push(data_getPrivileges)
+                                                                            }
+                                                                            response.success_post_put("Privilege have been create", dataPrivileges, res)
+                                                                        }
+                                                                    })
+                                                                }
+                                                            })
                                                         }
-                                                        response.success_post_put("Privilege have been create", dataPrivileges, res)
-                                                    }
-                                                })
-                                            }
-                                        })
-                                    }
-                                }); 
+                                                    }); 
+                                                }
+                                            })
+                                        }
+                                    })
+                                }
                             }
                         })
                     }
@@ -534,34 +662,52 @@ exports.getPrivilegesID = async function(req, res) {
             } else if (date_now > result.rows[0].token_expired) {
                 response.unauthor('Your Token Is Expired', res)
             } else {
-                await connection.query(`select role_id from role where role_id='${role_id}'`, async function (error, result, fields){
-                    if(result.rowCount == 0){
-                        response.not_found('Role Not Found', res)
-                    } else {
-                            await connection.query(
-                                `select a.role_privileges_id, a.is_view, a.is_insert, a.is_update, a.is_delete, a.is_approval from role_privileges a left join role b on a.role_id=b.role_id where a.role_id='${role_id}' and a.role_privileges_id='${privileges_id}';`,
-                                function (error, result, fields){
-                                if(error){
-                                    console.log(error)
-                                } else if(result.rowCount == 0){
-                                    response.not_found('Privileges Not Found', res)
-                                } else{
-                                    var dataPrivilegesID = []
-                                    for (var i = 0; i < result.rows.length; i++) {
-                                        var row = result.rows[i];
-                                        var data_getPrivilegesID = {
-                                            "id": row.role_privileges_id,
-                                            "isView": row.is_view,
-                                            "isInsert": row.is_insert,
-                                            "isUpdate": row.is_update,
-                                            "isDelete": row.is_delete,
-                                            "isApproval": row.is_approval
+                await connection.query(`SELECT role_id from "user" where token='${token}'`, async function (error, result, fields){
+                    if(error){
+                        console.log(error)
+                    } else{
+                        var role_id_checking = result.rows[0].role_id
+                        await connection.query(`SELECT lower(a.role_name) from role a LEFT JOIN "user" b on a.role_id=b.role_id where a.role_id='${role_id_checking}'`, async function (error, result, fields){
+                            if(error){
+                                console.log(error)
+                            } else {
+                                var role_name_checking = result.rows[0].lower
+                                if(role_name_checking !== 'super_admin' & role_name_checking !== 'yti') {
+                                    response.unauthor('You are not allowed to get role privileges', res)
+                                } else {
+                                    await connection.query(`select role_id from role where role_id='${role_id}'`, async function (error, result, fields){
+                                        if(result.rowCount == 0){
+                                            response.not_found('Role Not Found', res)
+                                        } else {
+                                                await connection.query(
+                                                    `select a.role_privileges_id, a.is_view, a.is_insert, a.is_update, a.is_delete, a.is_approval from role_privileges a left join role b on a.role_id=b.role_id where a.role_id='${role_id}' and a.role_privileges_id='${privileges_id}';`,
+                                                    function (error, result, fields){
+                                                    if(error){
+                                                        console.log(error)
+                                                    } else if(result.rowCount == 0){
+                                                        response.not_found('Privileges Not Found', res)
+                                                    } else{
+                                                        var dataPrivilegesID = []
+                                                        for (var i = 0; i < result.rows.length; i++) {
+                                                            var row = result.rows[i];
+                                                            var data_getPrivilegesID = {
+                                                                "id": row.role_privileges_id,
+                                                                "isView": row.is_view,
+                                                                "isInsert": row.is_insert,
+                                                                "isUpdate": row.is_update,
+                                                                "isDelete": row.is_delete,
+                                                                "isApproval": row.is_approval
+                                                            }
+                                                            dataPrivilegesID.push(data_getPrivilegesID)
+                                                        }
+                                                        response.success_getID(dataPrivilegesID, res)
+                                                    }
+                                                });
                                         }
-                                        dataPrivilegesID.push(data_getPrivilegesID)
-                                    }
-                                    response.success_getID(dataPrivilegesID, res)
+                                    })
                                 }
-                            });
+                            }
+                        })
                     }
                 })
             }
@@ -614,79 +760,97 @@ exports.putPrivilegesID = async function(req, res) {
             } else if (date_now > result.rows[0].token_expired) {
                 response.unauthor('Your Token Is Expired', res)
             } else {
-                await connection.query(`select role_id from role where role_id='${role_id}'`, async function (error, result, fields){
-                    if(result.rowCount == 0){
-                        response.not_found('Role Not Found', res)
-                    } else {
-                        await connection.query(
-                            `select a.role_privileges_id from role_privileges a left join role b on a.role_id=b.role_id where a.role_id='${role_id}' and a.role_privileges_id='${privileges_id}';`,
-                            async function (error, result, fields){
+                await connection.query(`SELECT role_id from "user" where token='${token}'`, async function (error, result, fields){
+                    if(error){
+                        console.log(error)
+                    } else{
+                        var role_id_checking = result.rows[0].role_id
+                        await connection.query(`SELECT lower(a.role_name) from role a LEFT JOIN "user" b on a.role_id=b.role_id where a.role_id='${role_id_checking}'`, async function (error, result, fields){
                             if(error){
                                 console.log(error)
-                            } else if(result.rowCount == 0){
-                                response.not_found('Privileges Not Found', res)
                             } else {
-                                Joi.validate(req.body, schema, async function (err, value) { 
-                                    if (err) {
-                                        response.bad_req(err.details[0].message, res)
-                                    } else {
-                                        let query = "UPDATE role_privileges SET "
-                                        let flag = false
-                                        if(is_view){
-                                            query = query + `is_view = '${is_view}'`
-                                            flag = true
-                                        }
-                                        if(is_insert){
-                                            flag == true ? query = query + `, is_insert = '${is_insert}'` : query = query + `is_insert = '${is_insert}'`
-                                            flag = true
-                                        }
-                                        if(is_update){
-                                            flag == true ? query = query + `, is_update = '${is_update}'` : query = query + `is_update = '${is_update}'`
-                                            flag = true
-                                        }
-                                        if(is_delete){
-                                            flag == true ? query = query + `, is_delete = '${is_delete}'` : query = query + `is_delete = '${is_delete}'`
-                                            flag = true
-                                        }
-                                        if(is_approval){
-                                            flag == true ? query = query + `, is_approval = '${is_approval}'` : query = query + `is_approval = '${is_approval}'`
-                                            flag = true
-                                        }
-                                        query = query + ` where role_privileges_id='${privileges_id}';`
-                                        console.log(query)
-                    
-                                        await connection.query(query, async function (error, result, fields){
-                                            if(!error){
-                                                await connection.query(
-                                                    `select a.role_privileges_id, a.is_view, a.is_insert, a.is_update, a.is_delete, a.is_approval from role_privileges a left join role b on a.role_id=b.role_id where a.role_id='${role_id}' and a.role_privileges_id='${privileges_id}';`,
-                                                    function (error, result, fields){
-                                                    if(error){
-                                                        console.log(error)
-                                                    } else if(result.rowCount == 0){
-                                                        response.not_found('Privileges Not Found', res)
-                                                    } else{
-                                                        var dataPrivileges = []
-                                                        for (var i = 0; i < result.rows.length; i++) {
-                                                            var row = result.rows[i];
-                                                            var data_getPrivilegesID = {
-                                                                "id": row.role_privileges_id,
-                                                                "isView": row.is_view,
-                                                                "isInsert": row.is_insert,
-                                                                "isUpdate": row.is_update,
-                                                                "isDelete": row.is_delete,
-                                                                "isApproval": row.is_approval
+                                var role_name_checking = result.rows[0].lower
+                                if(role_name_checking !== 'super_admin') {
+                                    response.unauthor('You are not allowed to update role privileges', res)
+                                } else {
+                                    await connection.query(`select role_id from role where role_id='${role_id}'`, async function (error, result, fields){
+                                        if(result.rowCount == 0){
+                                            response.not_found('Role Not Found', res)
+                                        } else {
+                                            await connection.query(
+                                                `select a.role_privileges_id from role_privileges a left join role b on a.role_id=b.role_id where a.role_id='${role_id}' and a.role_privileges_id='${privileges_id}';`,
+                                                async function (error, result, fields){
+                                                if(error){
+                                                    console.log(error)
+                                                } else if(result.rowCount == 0){
+                                                    response.not_found('Privileges Not Found', res)
+                                                } else {
+                                                    Joi.validate(req.body, schema, async function (err, value) { 
+                                                        if (err) {
+                                                            response.bad_req(err.details[0].message, res)
+                                                        } else {
+                                                            let query = "UPDATE role_privileges SET "
+                                                            let flag = false
+                                                            if(is_view){
+                                                                query = query + `is_view = '${is_view}'`
+                                                                flag = true
                                                             }
-                                                            dataPrivileges.push(data_getPrivilegesID)
+                                                            if(is_insert){
+                                                                flag == true ? query = query + `, is_insert = '${is_insert}'` : query = query + `is_insert = '${is_insert}'`
+                                                                flag = true
+                                                            }
+                                                            if(is_update){
+                                                                flag == true ? query = query + `, is_update = '${is_update}'` : query = query + `is_update = '${is_update}'`
+                                                                flag = true
+                                                            }
+                                                            if(is_delete){
+                                                                flag == true ? query = query + `, is_delete = '${is_delete}'` : query = query + `is_delete = '${is_delete}'`
+                                                                flag = true
+                                                            }
+                                                            if(is_approval){
+                                                                flag == true ? query = query + `, is_approval = '${is_approval}'` : query = query + `is_approval = '${is_approval}'`
+                                                                flag = true
+                                                            }
+                                                            query = query + ` where role_privileges_id='${privileges_id}';`
+                                                            console.log(query)
+                                        
+                                                            await connection.query(query, async function (error, result, fields){
+                                                                if(!error){
+                                                                    await connection.query(
+                                                                        `select a.role_privileges_id, a.is_view, a.is_insert, a.is_update, a.is_delete, a.is_approval from role_privileges a left join role b on a.role_id=b.role_id where a.role_id='${role_id}' and a.role_privileges_id='${privileges_id}';`,
+                                                                        function (error, result, fields){
+                                                                        if(error){
+                                                                            console.log(error)
+                                                                        } else if(result.rowCount == 0){
+                                                                            response.not_found('Privileges Not Found', res)
+                                                                        } else{
+                                                                            var dataPrivileges = []
+                                                                            for (var i = 0; i < result.rows.length; i++) {
+                                                                                var row = result.rows[i];
+                                                                                var data_getPrivilegesID = {
+                                                                                    "id": row.role_privileges_id,
+                                                                                    "isView": row.is_view,
+                                                                                    "isInsert": row.is_insert,
+                                                                                    "isUpdate": row.is_update,
+                                                                                    "isDelete": row.is_delete,
+                                                                                    "isApproval": row.is_approval
+                                                                                }
+                                                                                dataPrivileges.push(data_getPrivilegesID)
+                                                                            }
+                                                                            response.success_post_put('Privilege have been update', dataPrivileges, res)
+                                                                        }
+                                                                    });
+                                                                }
+                                                            })
                                                         }
-                                                        response.success_post_put('Privilege have been update', dataPrivileges, res)
-                                                    }
-                                                });
-                                            }
-                                        })
-                                    }
-                                });
+                                                    });
+                                                }
+                                            });
+                                        }
+                                    })
+                                }
                             }
-                        });
+                        })
                     }
                 })
             }
@@ -725,23 +889,41 @@ exports.deletePrivilegesID = async function(req, res) {
             } else if (date_now > result.rows[0].token_expired) {
                 response.unauthor('Your Token Is Expired', res)
             } else {
-                await connection.query(`select role_id from role where role_id='${role_id}'`, async function (error, result, fields){
-                    if(result.rowCount == 0){
-                        response.not_found('Role Not Found', res)
-                    } else {
-                        await connection.query(`SELECT a.role_privileges_id FROM role_privileges a left join role b on a.role_id=b.role_id where a.role_id='${role_id}' and a.role_privileges_id='${privileges_id}';`, async function (error, result, fields){
-                            if(result.rowCount == 0){
-                                response.not_found('Privileges in this Role Not Found', res)
+                await connection.query(`SELECT role_id from "user" where token='${token}'`, async function (error, result, fields){
+                    if(error){
+                        console.log(error)
+                    } else{
+                        var role_id_checking = result.rows[0].role_id
+                        await connection.query(`SELECT lower(a.role_name) from role a LEFT JOIN "user" b on a.role_id=b.role_id where a.role_id='${role_id_checking}'`, async function (error, result, fields){
+                            if(error){
+                                console.log(error)
                             } else {
-                                await connection.query(`DELETE FROM role_privileges WHERE role_id='${role_id}' and role_privileges_id='${privileges_id}';`, function (error, result, fields){
-                                    if(error){
-                                        console.log(error)
-                                    } else if(result.rowCount == 0){
-                                        response.not_found('Privileges Not Found', res)
-                                    } else {
-                                        response.success_delete('Privileges have been delete', res)
-                                    }
-                                })
+                                var role_name_checking = result.rows[0].lower
+                                if(role_name_checking !== 'super_admin') {
+                                    response.unauthor('You are not allowed to delete role privileges', res)
+                                } else {
+                                    await connection.query(`select role_id from role where role_id='${role_id}'`, async function (error, result, fields){
+                                        if(result.rowCount == 0){
+                                            response.not_found('Role Not Found', res)
+                                        } else {
+                                            await connection.query(`SELECT a.role_privileges_id FROM role_privileges a left join role b on a.role_id=b.role_id where a.role_id='${role_id}' and a.role_privileges_id='${privileges_id}';`, async function (error, result, fields){
+                                                if(result.rowCount == 0){
+                                                    response.not_found('Privileges in this Role Not Found', res)
+                                                } else {
+                                                    await connection.query(`DELETE FROM role_privileges WHERE role_id='${role_id}' and role_privileges_id='${privileges_id}';`, function (error, result, fields){
+                                                        if(error){
+                                                            console.log(error)
+                                                        } else if(result.rowCount == 0){
+                                                            response.not_found('Privileges Not Found', res)
+                                                        } else {
+                                                            response.success_delete('Privileges have been delete', res)
+                                                        }
+                                                    })
+                                                }
+                                            })
+                                        }
+                                    })
+                                }
                             }
                         })
                     }
