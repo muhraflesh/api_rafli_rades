@@ -14,6 +14,7 @@ module.exports = {
 
     schemas: {
         scrSchema: joi.object().keys({
+            userId: joi.string().required(),
             kk: joi.string().max(25),
             nik: joi.string().max(25),
             bloodType: joi.string().max(2),
@@ -30,6 +31,24 @@ module.exports = {
             occupation: joi.string().max(100),
             providerStatus: joi.boolean()
         }),
+        scrWithSidSchema: joi.object().keys({
+            kk: joi.string().max(25),
+            nik: joi.string().max(25),
+            bloodType: joi.string().max(2),
+            fatherName: joi.string().max(50),
+            motherName: joi.string().max(50),
+            popti: joi.string().max(50),
+            state: joi.string().max(50),
+            city: joi.string().max(50),
+            address: joi.string(),
+            detectionYear: joi.date(),
+            level1HealthFacilities: joi.string().max(100),
+            levelOfEducation: joi.string().max(100),
+            maritalStatus: joi.string().max(100),
+            occupation: joi.string().max(100),
+            providerStatus: joi.boolean()
+        })
+        ,
         labSchema: joi.object().keys({
             labName: joi.string().max(100),
             labNumber: joi.string().max(100),

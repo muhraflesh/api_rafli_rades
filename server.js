@@ -14,7 +14,7 @@ app.use(express.static(__dirname + '/storage'));
 // routes(app);
 
 app.use('/v2/project', require('./router/project'))
-app.use('/v2/user', require('./router/screen'))
+app.use('/v2/screening', require('./router/screen'))
 app.use('/v2/user', require('./router/user'))
 app.use('/v2/role', require('./router/role'))
 app.use('/v2/document', require('./router/document'))
