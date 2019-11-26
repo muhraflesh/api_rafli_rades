@@ -98,7 +98,7 @@ const post_docs = async (req) => {
     return {
     date : date,
     id : get_id(get_date(), "screening"),
-    user_id : req.params.id,
+    user_id : req.body.userId,
     kk_number : req.body.kk,
     nik : req.body.nik,
     blood_type : req.body.bloodType,
@@ -148,7 +148,7 @@ const labres_func = (result) => {
             id: row.laboratory_result_id,
             labName: row.laboratory_name,
             labNumber: row.laboratory_number,
-            visitDate: `${row.visit_date.getFullYear()}-${row.visit_date.getMonth()}-${row.visit_date.getDate()}`,
+            visitDate: `${row.visit_date.getFullYear()}-${row.visit_date.getMonth()+1}-${row.visit_date.getDate()}`,
             hemoglobin: row.hemoglobin,
             hematokrit: row.hematokrit,
             eritrosit: row.eritrosit,
@@ -256,19 +256,30 @@ module.exports = {
     get_scr : async (req, res, next) => {
         const offset = offset_func(req)
         const limit = limit_func(req)
-        let q = ``
-        if (req.query.name) q = `${q} AND (firstname = '${req.query.name}' OR lastname = '${req.query.name}' OR username = '${req.query.name}')`
-        if (req.query.mail) q = `${q} AND email = '${req.query.email}'`
-        if (req.query.phone) q = `${q} AND telephone = '${req.query.phone}'`
-        if (req.query.cnum) q = `${q} AND card_number = '${req.query.cnum}'`
-        if (req.query.gender) q = `${q} AND gender = '${req.query.gender}'`
-        if (req.query.kk) q = `${q} AND kk_number = '${req.query.kk}'`
-        if (req.query.nik) q = `${q} AND nik = '${req.query.nik}'`
-        if (req.query.date) q = `${q} AND create_date = '${req.query.date}'`
-        if (req.query.parent) q = `${q} AND (father_name = '${req.query.parent}' OR mother_name = '${req.query.parent}')`
-        if (req.query.address) q = `${q} AND (address_state = '${req.query.address}' OR address_city = '${req.query.address}' OR address = '${req.query.address}' )`
-        if (req.query.popti) q = `${q} AND popti_city = '${req.query.popti}'`
-        const query = `SELECT user_screening_id, u.firstname, u.lastname, u.username, email, telephone, card_member, card_number, gender, birth_date, kk_number, nik, blood_type, father_name, mother_name, popti_city, address_state, address_city, address, detection_year,level_1_health_facilities, level_of_education, marital_status, occupation, provider_status, us.create_date FROM public."user" u RIGHT OUTER JOIN public."user_screening" us ON u.user_id = us.user_id where u.user_id = '${req.params.id}' ${q} offset ${offset} limit ${limit};`
+        let q = []
+        if (req.query.name) q.push(`(LOWER(firstname) LIKE LOWER('${req.query.name}') OR LOWER(lastname) LIKE LOWER ('${req.query.name}') OR LOWER(username) LIKE LOWER('${req.query.name}'))`)
+        if (req.query.mail) q.push(`LOWER(email) LIKE LOWER('${req.query.email}')`)
+        if (req.query.phone) q.push(`LOWER(telephone) LIKE LOWER('${req.query.phone}')`)
+        if (req.query.cnum) q.push(`LOWER(card_number) LIKE LOWER('${req.query.cnum}')`)
+        if (req.query.gender) q.push(`LOWER(gender) LIKE LOWER('${req.query.gender}')`)
+        if (req.query.kk) q.push(`LOWER(kk_number) LIKE LOWER('${req.query.kk}')`)
+        if (req.query.nik) q.push(`LOWER(nik) LIKE LOWER('${req.query.nik}')`)
+        if (req.query.date) q.push(`LOWER(create_date) LIKE LOWER('${req.query.date}')`)
+        if (req.query.parent) q.push(`(LOWER(father_name) LIKE LOWER('${req.query.parent}') OR LOWER(mother_name) LIKE LOWER('${req.query.parent}'))`)
+        if (req.query.address) q.push(`(LOWER(address_state) LIKE LOWER('${req.query.address}') OR LOWER(address_city) LIKE LOWER'(${req.query.address}') OR LOWER(address) LIKE LOWER('${req.query.address}') )`)
+        if (req.query.popti) q.push(`LOWER(popti_city) LIKE LOWER('${req.query.popti}')`)
+        
+        let q2,x
+        if (q[0]) {
+            q2 = "WHERE "+ q.toString()
+            for(x in q){
+                q2 = q2.replace(","," AND ")
+            }
+        }else {
+            q = ""
+        }
+        q = q2
+        const query = `SELECT user_screening_id, u.firstname, u.lastname, u.username, email, telephone, card_member, card_number, gender, birth_date, kk_number, nik, blood_type, father_name, mother_name, popti_city, address_state, address_city, address, detection_year,level_1_health_facilities, level_of_education, marital_status, occupation, provider_status, us.create_date FROM public."user" u RIGHT OUTER JOIN public."user_screening" us ON u.user_id = us.user_id ${q} offset ${offset} limit ${limit};`
         connection.query(query, (error, result, fields) => {
             if (error) {
                 console.log(error)
@@ -308,7 +319,7 @@ module.exports = {
     },
 
     get_scr_sid : async (req, res, next) => {
-        const query = `SELECT user_screening_id, firstname, lastname, username, email, telephone, card_member, card_number, gender, birth_date, kk_number, nik, blood_type, father_name, mother_name, popti_city, address_state, address_city, address, detection_year,level_1_health_facilities, level_of_education, marital_status, occupation, provider_status, us.create_date FROM public."user" u RIGHT OUTER JOIN public."user_screening" us ON u.user_id = us.user_id where u.user_id = '${req.params.id}' AND us.user_screening_id = '${req.params.sid}' ;`
+        const query = `SELECT user_screening_id, firstname, lastname, username, email, telephone, card_member, card_number, gender, birth_date, kk_number, nik, blood_type, father_name, mother_name, popti_city, address_state, address_city, address, detection_year,level_1_health_facilities, level_of_education, marital_status, occupation, provider_status, us.create_date FROM public."user" u RIGHT OUTER JOIN public."user_screening" us ON u.user_id = us.user_id where us.user_screening_id = '${req.params.sid}' ;`
         connection.query(query, (error, result, fields) => {
             if (error) {
                 console.log(error)
@@ -328,8 +339,8 @@ module.exports = {
     put_scr_sid : async (req, res, next) => {
         const date = get_date()
         const req_query = put_query(req)
-        const query = `UPDATE public."user_screening" SET create_date = '${date}' ${req_query} WHERE user_screening_id = '${req.params.sid}' AND user_id = '${req.params.id}';`
-        
+        const query = `UPDATE public."user_screening" SET create_date = '${date}' ${req_query} WHERE user_screening_id = '${req.params.sid}';`
+        console.log(query)
         connection.query(query, async (error, result, fields) => {
             if (error) {
                 console.log(error)
@@ -351,7 +362,7 @@ module.exports = {
     },
 
     del_scr_sid : async (req, res, next) => {
-        const query = `DELETE FROM public."user_screening" WHERE user_screening_id = '${req.params.sid}' AND user_id = '${req.params.id}';`
+        const query = `DELETE FROM public."user_screening" WHERE user_screening_id = '${req.params.sid}';`
         await connection.query(query, (error, result, fields) => {
             if (error) {
                 console.log(error)
@@ -370,10 +381,11 @@ module.exports = {
     get_lab : async (req, res, next) => {
         const offset = offset_func(req)
         const limit = limit_func(req)
-        let q1, q2 = ""
-        if (req.query.name) q1 = `AND laboratory_name = '${req.query.name}`
-        if (req.query.number) q2 = `AND laboratory_number = '${req.query.number}'`
-        const query = `SELECT * FROM laboratory result WHERE user_screening_id = '${req.params.sid}' ${q1} ${q2} offset = ${offset} limit = ${limit};`
+        let q = ""
+        if (req.query.name) q = q + ` AND LOWER(laboratory_name) LIKE LOWER('${req.query.name})`
+        if (req.query.number) q = q + ` AND LOWER(laboratory_number) = LIKE LOWER('${req.query.number}')`
+        q = q + " "
+        const query = `SELECT * FROM public."laboratory_result" WHERE user_screening_id = '${req.params.sid}'${q}offset ${offset} limit ${limit};`
         await connection.query(query, (error, result, fields) => {
             if (error) {
                 console.log(error)
