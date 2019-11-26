@@ -257,17 +257,17 @@ module.exports = {
         const offset = offset_func(req)
         const limit = limit_func(req)
         let q = []
-        if (req.query.name) q.push(`(firstname = '${req.query.name}' OR lastname = '${req.query.name}' OR username = '${req.query.name}')`)
-        if (req.query.mail) q.push(`email = '${req.query.email}'`)
-        if (req.query.phone) q.push(`telephone = '${req.query.phone}'`)
-        if (req.query.cnum) q.push(`card_number = '${req.query.cnum}'`)
-        if (req.query.gender) q.push(`gender = '${req.query.gender}'`)
-        if (req.query.kk) q.push(`kk_number = '${req.query.kk}'`)
-        if (req.query.nik) q.push(`nik = '${req.query.nik}'`)
-        if (req.query.date) q.push(`create_date = '${req.query.date}'`)
-        if (req.query.parent) q.push(`(father_name = '${req.query.parent}' OR mother_name = '${req.query.parent}')`)
-        if (req.query.address) q.push(`(address_state = '${req.query.address}' OR address_city = '${req.query.address}' OR address = '${req.query.address}' )`)
-        if (req.query.popti) q.push(`popti_city = '${req.query.popti}'`)
+        if (req.query.name) q.push(`(LOWER(firstname) LIKE LOWER('${req.query.name}') OR LOWER(lastname) LIKE LOWER ('${req.query.name}') OR LOWER(username) LIKE LOWER('${req.query.name}'))`)
+        if (req.query.mail) q.push(`LOWER(email) LIKE LOWER('${req.query.email}')`)
+        if (req.query.phone) q.push(`LOWER(telephone) LIKE LOWER('${req.query.phone}')`)
+        if (req.query.cnum) q.push(`LOWER(card_number) LIKE LOWER('${req.query.cnum}')`)
+        if (req.query.gender) q.push(`LOWER(gender) LIKE LOWER('${req.query.gender}')`)
+        if (req.query.kk) q.push(`LOWER(kk_number) LIKE LOWER('${req.query.kk}')`)
+        if (req.query.nik) q.push(`LOWER(nik) LIKE LOWER('${req.query.nik}')`)
+        if (req.query.date) q.push(`LOWER(create_date) LIKE LOWER('${req.query.date}')`)
+        if (req.query.parent) q.push(`(LOWER(father_name) LIKE LOWER('${req.query.parent}') OR LOWER(mother_name) LIKE LOWER('${req.query.parent}'))`)
+        if (req.query.address) q.push(`(LOWER(address_state) LIKE LOWER('${req.query.address}') OR LOWER(address_city) LIKE LOWER'(${req.query.address}') OR LOWER(address) LIKE LOWER('${req.query.address}') )`)
+        if (req.query.popti) q.push(`LOWER(popti_city) LIKE LOWER('${req.query.popti}')`)
         if (q[0]) {
             q = "WHERE "+ q.toString()
             q = q.replace(","," AND ")
@@ -275,7 +275,6 @@ module.exports = {
             q = ""
         }
         const query = `SELECT user_screening_id, u.firstname, u.lastname, u.username, email, telephone, card_member, card_number, gender, birth_date, kk_number, nik, blood_type, father_name, mother_name, popti_city, address_state, address_city, address, detection_year,level_1_health_facilities, level_of_education, marital_status, occupation, provider_status, us.create_date FROM public."user" u RIGHT OUTER JOIN public."user_screening" us ON u.user_id = us.user_id ${q} offset ${offset} limit ${limit};`
-        console.log(query)
         connection.query(query, (error, result, fields) => {
             if (error) {
                 console.log(error)
@@ -378,11 +377,10 @@ module.exports = {
         const offset = offset_func(req)
         const limit = limit_func(req)
         let q = ""
-        if (req.query.name) q = q + ` AND laboratory_name = '${req.query.name}`
-        if (req.query.number) q = q + ` AND laboratory_number = '${req.query.number}'`
+        if (req.query.name) q = q + ` AND LOWER(laboratory_name) LIKE LOWER('${req.query.name})`
+        if (req.query.number) q = q + ` AND LOWER(laboratory_number) = LIKE LOWER('${req.query.number}')`
         q = q + " "
         const query = `SELECT * FROM public."laboratory_result" WHERE user_screening_id = '${req.params.sid}'${q}offset ${offset} limit ${limit};`
-        console.log(query)
         await connection.query(query, (error, result, fields) => {
             if (error) {
                 console.log(error)
