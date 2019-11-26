@@ -268,12 +268,17 @@ module.exports = {
         if (req.query.parent) q.push(`(LOWER(father_name) LIKE LOWER('${req.query.parent}') OR LOWER(mother_name) LIKE LOWER('${req.query.parent}'))`)
         if (req.query.address) q.push(`(LOWER(address_state) LIKE LOWER('${req.query.address}') OR LOWER(address_city) LIKE LOWER'(${req.query.address}') OR LOWER(address) LIKE LOWER('${req.query.address}') )`)
         if (req.query.popti) q.push(`LOWER(popti_city) LIKE LOWER('${req.query.popti}')`)
+        
+        let q2,x
         if (q[0]) {
-            q = "WHERE "+ q.toString()
-            q = q.replace(","," AND ")
+            q2 = "WHERE "+ q.toString()
+            for(x in q){
+                q2 = q2.replace(","," AND ")
+            }
         }else {
             q = ""
         }
+        q = q2
         const query = `SELECT user_screening_id, u.firstname, u.lastname, u.username, email, telephone, card_member, card_number, gender, birth_date, kk_number, nik, blood_type, father_name, mother_name, popti_city, address_state, address_city, address, detection_year,level_1_health_facilities, level_of_education, marital_status, occupation, provider_status, us.create_date FROM public."user" u RIGHT OUTER JOIN public."user_screening" us ON u.user_id = us.user_id ${q} offset ${offset} limit ${limit};`
         connection.query(query, (error, result, fields) => {
             if (error) {
