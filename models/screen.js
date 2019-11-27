@@ -117,6 +117,11 @@ const post_docs = async (req) => {
     }
 }
 const put_query = (req) => {
+    switch (req.body.providerStatus){
+        case true : providerStatus = "1"
+        case false : providerStatus = "0"
+    }
+    
     let x = [""]
     
     if (req.body.kk) x.push(`kk_number = '${req.body.kk}'`)
@@ -133,7 +138,7 @@ const put_query = (req) => {
     if (req.body.levelOfEducation)  x.push(`level_of_education  = '${req.body.levelOfEducation}'`)
     if (req.body.maritalStatus)  x.push(`marital_status  = '${req.body.maritalStatus}'`)
     if (req.body.occupation) x.push(`occupation  = '${req.body.occupation}'`)
-    if (req.body.providerStatus) x.push(`provider_status  = '${req.body.providerStatus}'`)
+    if (req.body.providerStatus) x.push(`provider_status  = '${providerStatus}'`)
     
     x = x.toString()
     return x
@@ -269,16 +274,18 @@ module.exports = {
         if (req.query.address) q.push(`(LOWER(address_state) LIKE LOWER('${req.query.address}') OR LOWER(address_city) LIKE LOWER'(${req.query.address}') OR LOWER(address) LIKE LOWER('${req.query.address}') )`)
         if (req.query.popti) q.push(`LOWER(popti_city) LIKE LOWER('${req.query.popti}')`)
         
-        let q2,x
-        if (q[0]) {
-            q2 = "WHERE "+ q.toString()
-            for(x in q){
-                q2 = q2.replace(","," AND ")
+        {
+            let q2 = ""
+            if (q[0]) {
+                q2 = "WHERE "+ q.toString()
+                for(x in q){
+                    q2 = q2.replace(","," AND ")
+                }
+            }else {
+                q = ""
             }
-        }else {
-            q = ""
+            q = q2
         }
-        q = q2
         const query = `SELECT user_screening_id, u.firstname, u.lastname, u.username, email, telephone, card_member, card_number, gender, birth_date, kk_number, nik, blood_type, father_name, mother_name, popti_city, address_state, address_city, address, detection_year,level_1_health_facilities, level_of_education, marital_status, occupation, provider_status, us.create_date FROM public."user" u RIGHT OUTER JOIN public."user_screening" us ON u.user_id = us.user_id ${q} offset ${offset} limit ${limit};`
         connection.query(query, (error, result, fields) => {
             if (error) {
