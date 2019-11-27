@@ -22,6 +22,29 @@ exports.get = function(req, res) {
 
     var offset = !req.query.offset ? 0 : req.query.offset;
     var limit = !req.query.limit ? 'All' : req.query.limit;
+
+    let q = []
+    if (req.query.name) q.push(`(LOWER(firstname) LIKE LOWER('%${req.query.name}%') OR LOWER(lastname) LIKE LOWER('%${req.query.name}%') OR LOWER(username) LIKE LOWER('%${req.query.name}%'))`)
+    if (req.query.mail) q.push(`LOWER(email) = LOWER('${req.query.mail}')`)
+    if (req.query.phone) q.push(`LOWER(telephone) = LOWER('${req.query.phone}')`)
+    if (req.query.cnum) q.push(`LOWER(card_number) = LOWER('${req.query.cnum}')`)
+    if (req.query.gender) q.push(`LOWER(gender) = LOWER('${req.query.gender}')`)
+    if (req.query.role) q.push(`a.role_id = b.role_id AND LOWER(b.role_name) = LOWER('${req.query.role}')`)
+    if (req.query.role) {
+        var r = `, "role" b`
+    } else {
+        var r = ''
+    }
+    var x
+    if (q[0]) {
+        q = "WHERE "+ q.toString()
+        for (x in q) {
+            q = q.replace(","," AND ")
+        }
+    } else {
+        q = ""
+    }
+    const query = `SELECT user_id, firstname, lastname, username, email, telephone, card_member, card_number, gender, birth_date, is_active, is_login, create_date, update_date, a.role_id, count(*) OVER() AS full_count FROM "user" a ${r} ${q} order by firstname offset ${offset} limit ${limit}`
     
     var token = req.headers.token
     if(!req.headers.token) {
@@ -48,73 +71,40 @@ exports.get = function(req, res) {
                             } else {
                                 var role_name_checking = result.rows[0].lower
                                 if(role_name_checking !== 'super_admin' & role_name_checking !== 'yti') {
-                                    response.unauthor('You are not allowed to get user/member', res)
+                                    response.unauthor('You are not allowed to get user', res)
                                 } else {
-                                    if(req.query.name || req.query.mail || req.query.phone || req.query.cnum || req.query.gender) {
-                                        connection.query(
-                                            `SELECT user_id, firstname, lastname, username, email, telephone, card_member, card_number, gender, birth_date, is_active, is_login, create_date, update_date, role_id FROM "user" WHERE (LOWER(firstname) LIKE LOWER('%${req.query.name}%') OR LOWER(lastname) LIKE LOWER('%${req.query.name}%') OR LOWER(username) LIKE LOWER('%${req.query.name}%')) and telephone LIKE '%${req.query.phone}%' and LOWER(email) LIKE LOWER('%${req.query.mail}%') and LOWER(card_number) LIKE LOWER('%${req.query.cnum}%') and LOWER(gender) LIKE LOWER('%${req.query.gender}%') order by firstname offset ${offset} limit ${limit}`,
-                                            function (error, result, fields){
-                                            if(error){
-                                                console.log(error)
-                                            } else{
-                                                var dataMember = []
-                                                for (var i = 0; i < result.rows.length; i++) {
-                                                    var row = result.rows[i];
-                                                    var data_getMember = {
-                                                        "id": row.user_id,
-                                                        "firstName": row.firstname,
-                                                        "lastName": row.lastname,
-                                                        "userName": row.username,
-                                                        "mail": row.email,
-                                                        "phone": row.telephone,
-                                                        "cardMember": row.card_member,
-                                                        "cardNumber": row.card_number,
-                                                        "gender": row.gender,
-                                                        "birthDate": row.birth_date,
-                                                        "isActive": row.is_active,
-                                                        "isLogin": row.is_login,
-                                                        "createDate": row.create_date,
-                                                        "updateDate": row.update_date,
-                                                        "roleId": row.role_id
-                                                    }
-                                                    dataMember.push(data_getMember)
+                                    console.log(query)
+                                    connection.query(query,
+                                        function (error, result, fields){
+                                        if(error){
+                                            console.log(error)
+                                        } else {
+                                            var dataMember = []
+                                            for (var i = 0; i < result.rows.length; i++) {
+                                                var row = result.rows[i];
+                                                var data_getMember = {
+                                                    "id": row.user_id,
+                                                    "firstName": row.firstname,
+                                                    "lastName": row.lastname,
+                                                    "userName": row.username,
+                                                    "mail": row.email,
+                                                    "phone": row.telephone,
+                                                    "cardMember": row.card_member,
+                                                    "cardNumber": row.card_number,
+                                                    "gender": row.gender,
+                                                    "birthDate": row.birth_date,
+                                                    "isActive": row.is_active,
+                                                    "isLogin": row.is_login,
+                                                    "createDate": row.create_date,
+                                                    "updateDate": row.update_date,
+                                                    "roleId": row.role_id
                                                 }
-                                                limit = 'All' ? i : req.query.limit;
-                                                response.success_get(dataMember, offset, limit, i, res)
+                                                dataMember.push(data_getMember)
                                             }
-                                        });
-                                    } else {
-                                        connection.query(`SELECT user_id, firstname, lastname, username, email, telephone, card_member, card_number, gender, birth_date, is_active, is_login, create_date, update_date, role_id FROM "user" offset ${offset} limit ${limit};`, function (error, result, fields){
-                                            if(error){
-                                                console.log(error)
-                                            } else{
-                                                var dataMember = []
-                                                for (var i = 0; i < result.rows.length; i++) {
-                                                        var row = result.rows[i];
-                                                        var data_getMember = {
-                                                            "id": row.user_id,
-                                                            "firstName": row.firstname,
-                                                            "lastName": row.lastname,
-                                                            "userName": row.username,
-                                                            "mail": row.email,
-                                                            "phone": row.telephone,
-                                                            "cardMember": row.card_member,
-                                                            "cardNumber": row.card_number,
-                                                            "gender": row.gender,
-                                                            "birthDate": row.birth_date,
-                                                            "isActive": row.is_active,
-                                                            "isLogin": row.is_login,
-                                                            "createDate": row.create_date,
-                                                            "updateDate": row.update_date,
-                                                            "roleId": row.role_id
-                                                        }
-                                                        dataMember.push(data_getMember)
-                                                }
-                                                limit = 'All' ? i : req.query.limit;
-                                                response.success_get(dataMember, offset, limit, i, res)
-                                            }
-                                        });
-                                    }
+                                            limit = 'All' ? i : req.query.limit;
+                                            response.success_get(dataMember, offset, limit, full_count, res)
+                                        }
+                                    });
                                 }
                             }
                         })
@@ -165,10 +155,10 @@ exports.post = async function(req, res) {
         mail: Joi.string().email({ minDomainAtoms: 2 }).required(),
         phone: Joi.number().integer().required(),
         cardMember: Joi.string().valid('1', '0').max(1).required(),
-        cardNumber: Joi.number().integer().required(),
+        cardNumber: Joi,
         gender: Joi.string().max(10).required(),
-        birthDate: Joi.required(),
-        roleId: Joi.required(),
+        birthDate: Joi.string().required(),
+        roleId: Joi.string().required(),
     })
 
     // Joi.validate(req.body, schema, async function (err, value) { 
@@ -204,7 +194,7 @@ exports.post = async function(req, res) {
                             } else {
                                 var role_name_checking = result.rows[0].lower
                                 if(role_name_checking !== 'super_admin' & role_name_checking !== 'yti') {
-                                    response.unauthor('You are not allowed to create user/member', res)
+                                    response.unauthor('You are not allowed to create user', res)
                                 } else {
                                     await connection.query(`SELECT user_id from "user" where email='${mail}';`, async function (error, result, fields){
                                         if(result.rowCount !== 0){
@@ -595,7 +585,7 @@ exports.delete = function(req, res) {
                             } else {
                                 var role_name_checking = result.rows[0].lower
                                 if(role_name_checking !== 'super_admin' & role_name_checking !== 'yti') {
-                                    response.unauthor('You are not allowed to delete user/member', res)
+                                    response.unauthor('You are not allowed to delete user', res)
                                 } else {
                                     connection.query(`DELETE FROM "user" WHERE user_id='${user_id}'`, function (error, result, fields){
                                         if(result.rowCount == 0){

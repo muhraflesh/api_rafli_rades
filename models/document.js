@@ -26,6 +26,16 @@ exports.get = async function(req, res) {
     var date_now = date.getUTCFullYear() + "-" + month + "-" + day + " " + hours + ":" + minutes + ":" + seconds;
     var offset = !req.query.offset ? 0 : req.query.offset;
     var limit = !req.query.limit ? 'All' : req.query.limit;
+    let q = []
+    if (req.query.name) q.push(`LOWER(name) LIKE LOWER('%${req.query.name}%')`)
+    if (req.query.type) q.push(`LOWER(type) LIKE LOWER('%${req.query.type}%')`)
+    if (q[0]) {
+        q = "WHERE "+ q.toString()
+        q = q.replace(","," AND ")
+    } else {
+        q = ""
+    }
+    const query = `SELECT document_id, name, path, type, upload_date FROM document ${q} offset ${offset} limit ${limit};`
 
     var token = req.headers.token
     if(!req.headers.token) {
@@ -54,50 +64,27 @@ exports.get = async function(req, res) {
                                 if(role_name_checking !== 'super_admin' & role_name_checking !== 'yti') {
                                     response.unauthor('You are not allowed to get all document', res)
                                 } else {
-                                    if(req.query.name || req.query.type ) {
-                                        await connection.query(`SELECT document_id, name, path, type, upload_date FROM document WHERE LOWER(name) LIKE LOWER('%${req.query.name}%') and LOWER(type) LIKE LOWER('%${req.query.type}%') offset ${offset} limit ${limit};`, function (error, result, fields){
-                                            if(error){
-                                                console.log(error)
-                                            } else {
-                                                var dataDocument = []
-                                                for (var i = 0; i < result.rows.length; i++) {
-                                                    var row = result.rows[i];
-                                                    var data_getDocument = {
-                                                        "id": row.document_id,
-                                                        "name": row.name,
-                                                        "path": row.path,
-                                                        "type": row.type,
-                                                        "createDate": row.upload_date
-                                                    }
-                                                    dataDocument.push(data_getDocument)
+                                    console.log(query)
+                                    await connection.query(query, function (error, result, fields){
+                                        if(error){
+                                            console.log(error)
+                                        } else {
+                                            var dataDocument = []
+                                            for (var i = 0; i < result.rows.length; i++) {
+                                                var row = result.rows[i];
+                                                var data_getDocument = {
+                                                    "id": row.document_id,
+                                                    "name": row.name,
+                                                    "path": row.path,
+                                                    "type": row.type,
+                                                    "createDate": row.upload_date
                                                 }
-                                                limit = 'All' ? i : req.query.limit;
-                                                response.success_get(dataDocument, offset, limit, i, res)
+                                                dataDocument.push(data_getDocument)
                                             }
-                                        })
-                                    } else {
-                                        await connection.query(`SELECT document_id, name, path, type, upload_date FROM document offset ${offset} limit ${limit};`, function (error, result, fields){
-                                            if(error){
-                                                console.log(error)
-                                            } else {
-                                                var dataDocument = []
-                                                for (var i = 0; i < result.rows.length; i++) {
-                                                    var row = result.rows[i];
-                                                    var data_getDocument = {
-                                                        "id": row.document_id,
-                                                        "name": row.name,
-                                                        "path": row.path,
-                                                        "type": row.type,
-                                                        "createDate": row.upload_date
-                                                    }
-                                                    dataDocument.push(data_getDocument)
-                                                }
-                                                console.log(i)
-                                                limit = 'All' ? i : req.query.limit;
-                                                response.success_get(dataDocument, offset, limit, i, res)
-                                            }
-                                        })
-                                    }
+                                            limit = 'All' ? i : req.query.limit;
+                                            response.success_get(dataDocument, offset, limit, i, res)
+                                        }
+                                    })
                                 }
                             }
                         })
@@ -122,6 +109,11 @@ exports.post = async function(req, res) {
     seconds < 10 ? seconds = 0 + "" + seconds : seconds;
 
     var date_now = date.getUTCFullYear() + "-" + month + "-" + day + " " + hours + ":" + minutes + ":" + seconds;
+    var document_id = crypto.createHash('sha1').update('Document' + date_now + type).digest('hex');
+    var file = req.files.file
+    var type = req.body.type
+    var user_id = req.body.userId              
+                            
     const schema = Joi.object().keys({
         type: Joi.string().valid('ktp', 'kk', 'lab', 'statement', 'other').max(11).required(),
         userId: Joi.required(),
@@ -148,12 +140,6 @@ exports.post = async function(req, res) {
                         if (err) {
                             response.bad_req(err.details[0].message, res)
                         } else {
-                            var document_id = crypto.createHash('sha1').update('Document' + date_now + type).digest('hex');
-                    
-                            var file = req.files.file
-                            var type = req.body.type
-                            var user_id = req.body.userId
-                    
                             var ext = file.name.substring(file.name.lastIndexOf("."));
                             var result           = '';
                             var characters       = 'ABCDEFGH23456IJKLMNOPQRShijklmnTUVWXYZabcdefgopqrstuvwxyz01789';

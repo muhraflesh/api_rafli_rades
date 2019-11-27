@@ -217,7 +217,7 @@ exports.verification = async function(req, res) {
         } else {
             var verification_id = result.rows[0].verification_id
             
-            await connection.query(`UPDATE verification SET verification_status='1', update_date='${date_now}'`, async function (error, result, fields){
+            await connection.query(`UPDATE verification SET verification_status='1', update_date='${date_now}' where verification_hash = '${verification_hash}'`, async function (error, result, fields){
                 if(error) {
                     console.log(error)
                 } else {
