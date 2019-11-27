@@ -41,7 +41,7 @@ module.exports = {
             state: joi.string().max(50),
             city: joi.string().max(50),
             address: joi.string(),
-            detectionYear: joi.date(),
+            detectionYear: joi.string(),
             level1HealthFacilities: joi.string().max(100),
             levelOfEducation: joi.string().max(100),
             maritalStatus: joi.string().max(100),

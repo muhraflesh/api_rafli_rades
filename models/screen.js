@@ -76,7 +76,7 @@ const res_func = (result) => {
             "state": row.address_state,
             "city": row.address_city,
             "address": row.address,
-            "detectionYear": `${row.detection_year.getFullYear()}-${row.detection_year.getMonth()}-${row.detection_year.getDate()}`,
+            "detectionYear": row.detection_year,
             "level1HealthFacilities": row.level_1_health_facilities,
             "levelOfEducation": row.level_of_education,
             "maritalStatus": row.marital_status,
@@ -260,7 +260,7 @@ const labput_query = (req) => {
 module.exports = {
     get_scr : async (req, res, next) => {
         const offset = offset_func(req)
-        const limit = limit_func(req)
+        let limit = limit_func(req)
         let q = []
         if (req.query.name) q.push(`(LOWER(firstname) LIKE LOWER('${req.query.name}') OR LOWER(lastname) LIKE LOWER ('${req.query.name}') OR LOWER(username) LIKE LOWER('${req.query.name}'))`)
         if (req.query.mail) q.push(`LOWER(email) LIKE LOWER('${req.query.email}')`)
@@ -286,7 +286,7 @@ module.exports = {
             }
             q = q2
         }
-        const query = `SELECT user_screening_id, u.firstname, u.lastname, u.username, email, telephone, card_member, card_number, gender, birth_date, kk_number, nik, blood_type, father_name, mother_name, popti_city, address_state, address_city, address, detection_year,level_1_health_facilities, level_of_education, marital_status, occupation, provider_status, us.create_date FROM public."user" u RIGHT OUTER JOIN public."user_screening" us ON u.user_id = us.user_id ${q} offset ${offset} limit ${limit};`
+        const query = `SELECT user_screening_id, u.firstname, u.lastname, u.username, email, telephone, card_member, card_number, gender, birth_date, kk_number, nik, blood_type, father_name, mother_name, popti_city, address_state, address_city, address, detection_year,level_1_health_facilities, level_of_education, marital_status, occupation, provider_status, us.create_date, count(*) OVER() AS full_count FROM public."user" u RIGHT OUTER JOIN public."user_screening" us ON u.user_id = us.user_id ${q} offset ${offset} limit ${limit};`
         connection.query(query, (error, result, fields) => {
             if (error) {
                 console.log(error)
@@ -297,7 +297,10 @@ module.exports = {
                     response.not_found('Screening not found.', res)
                 } else{    
                     const docs = res_func(result)
-                    response.success_get(docs[0], offset, limit, docs[1], res)
+                    let full_count = "0"
+                    if(result.rows[0].full_count) full_count = result.rows[0].full_count
+                    if(limit == "all") limit = docs[1]
+                    response.success_get(docs[0], offset, limit, full_count, res)
                 }
             }
         })
