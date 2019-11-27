@@ -64,6 +64,8 @@ exports.get = function(req, res) {
                     if(error){
                         console.log(error)
                     } else{
+                        var full_count
+                        result.rowCount == 0 ? full_count = "0" : full_count = result.rows[0].full_count
                         var dataProject = []
                         for (var i = 0; i < result.rows.length; i++) {
                             var row = result.rows[i];
@@ -488,7 +490,7 @@ exports.getMember = async function(req, res) {
     } else {
         q = ""
     }
-    const query = `SELECT user_id, firstname, lastname, username, email, telephone, card_member, card_number, gender, birth_date, is_active, is_login, create_date, update_date, a.role_id FROM "user" a ${r} ${q} order by firstname offset ${offset} limit ${limit}`
+    const query = `SELECT user_id, firstname, lastname, username, email, telephone, card_member, card_number, gender, birth_date, is_active, is_login, create_date, update_date, a.role_id, count(*) OVER() AS full_count FROM "user" a ${r} ${q} order by firstname offset ${offset} limit ${limit}`
 
     var token = req.headers.token
     if(!req.headers.token) {
@@ -526,6 +528,8 @@ exports.getMember = async function(req, res) {
                                                 if(error){
                                                     console.log(error)
                                                 } else{
+                                                    var full_count
+                                                    result.rowCount == 0 ? full_count = "0" : full_count = result.rows[0].full_count
                                                     var dataMember = []
                                                     for (var i = 0; i < result.rows.length; i++) {
                                                         var row = result.rows[i];
@@ -549,7 +553,7 @@ exports.getMember = async function(req, res) {
                                                         dataMember.push(data_getMember)
                                                     }
                                                     limit = 'All' ? i : req.query.limit;
-                                                    response.success_get(dataMember, offset, limit, i, res)
+                                                    response.success_get(dataMember, offset, limit, full_count, res)
                                                 }
                                                 });
                                         }

@@ -31,7 +31,7 @@ exports.get = function(req, res) {
     } else {
         q = ""
     }
-    const query = `SELECT * FROM role ${q} order by role_name offset ${offset} limit ${limit};`
+    const query = `SELECT *, count(*) OVER() AS full_count FROM role ${q} order by role_name offset ${offset} limit ${limit};`
 
     var token = req.headers.token
     if(!req.headers.token) {
@@ -52,6 +52,8 @@ exports.get = function(req, res) {
                     if(error){
                         console.log(error)
                     } else{
+                        var full_count
+                        result.rowCount == 0 ? full_count = "0" : full_count = result.rows[0].full_count
                         var dataRole = []
                         for (var i = 0; i < result.rows.length; i++) {
                             var row = result.rows[i];
@@ -63,7 +65,7 @@ exports.get = function(req, res) {
                             dataRole.push(data_getRole)
                         }
                         limit = 'All' ? i : req.query.limit;
-                        response.success_get(dataRole, offset, limit, i, res)
+                        response.success_get(dataRole, offset, limit, full_count, res)
                     }
                 });
             }

@@ -35,7 +35,7 @@ exports.get = async function(req, res) {
     } else {
         q = ""
     }
-    const query = `SELECT document_id, name, path, type, upload_date FROM document ${q} offset ${offset} limit ${limit};`
+    const query = `SELECT document_id, name, path, type, upload_date, count(*) OVER() AS full_count FROM document ${q} offset ${offset} limit ${limit};`
 
     var token = req.headers.token
     if(!req.headers.token) {
@@ -69,6 +69,8 @@ exports.get = async function(req, res) {
                                         if(error){
                                             console.log(error)
                                         } else {
+                                            var full_count
+                                            result.rowCount == 0 ? full_count = "0" : full_count = result.rows[0].full_count
                                             var dataDocument = []
                                             for (var i = 0; i < result.rows.length; i++) {
                                                 var row = result.rows[i];
@@ -82,7 +84,7 @@ exports.get = async function(req, res) {
                                                 dataDocument.push(data_getDocument)
                                             }
                                             limit = 'All' ? i : req.query.limit;
-                                            response.success_get(dataDocument, offset, limit, i, res)
+                                            response.success_get(dataDocument, offset, limit, full_count, res)
                                         }
                                     })
                                 }

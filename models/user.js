@@ -79,6 +79,8 @@ exports.get = function(req, res) {
                                         if(error){
                                             console.log(error)
                                         } else {
+                                            var full_count
+                                            result.rowCount == 0 ? full_count = "0" : full_count = result.rows[0].full_count
                                             var dataMember = []
                                             for (var i = 0; i < result.rows.length; i++) {
                                                 var row = result.rows[i];
